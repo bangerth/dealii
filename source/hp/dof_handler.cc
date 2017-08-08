@@ -82,12 +82,26 @@ namespace internal
         void
         reserve_space_vertices (DoFHandler<dim,spacedim> &dof_handler)
         {
-          // The final step is allocating memory is to set up vertex
-          // dof information. since vertices are sequentially
+          // The final step in all of the reserve_space() functions is to set
+          // up vertex dof information. since vertices are sequentially
           // numbered, what we do first is to set up an array in which
           // we record whether a vertex is associated with any of the
           // given fe's, by setting a bit. in a later step, we then
           // actually allocate memory for the required dofs
+          //
+          // in the following, we only need to consider vertices that are
+          // adjacent to either a locally owned or a ghost cell; we never
+          // store anything on vertices that are only surrounded by
+          // artificial cells. so figure out that subset of vertices
+          // first
+          std::vector<bool> locally_used_vertices (dof_handler.tria->n_vertices(),
+                                                   false);
+          for (typename HpDoFHandler<dim,spacedim>::active_cell_iterator
+               cell=dof_handler.begin_active(); cell!=dof_handler.end(); ++cell)
+            if (! cell->is_artificial())
+              for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; ++v)
+                locally_used_vertices[cell->vertex_index(v)] = true;
+
           std::vector<std::vector<bool> >
           vertex_fe_association (dof_handler.finite_elements->size(),
                                  std::vector<bool> (dof_handler.tria->n_vertices(), false));
@@ -103,17 +117,8 @@ namespace internal
           // with at least one fe (note that except for unused
           // vertices, all vertices are actually active). this is of
           // course only true for vertices that are part of either
-          // ghost or locally owned cells, so figure out which
-          // vertices these are
+          // ghost or locally owned cells
 #ifdef DEBUG
-          std::vector<bool> locally_used_vertices (dof_handler.tria->n_vertices(),
-                                                   false);
-          for (typename HpDoFHandler<dim,spacedim>::active_cell_iterator
-               cell=dof_handler.begin_active(); cell!=dof_handler.end(); ++cell)
-            if (! cell->is_artificial())
-              for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; ++v)
-                locally_used_vertices[cell->vertex_index(v)] = true;
-
           for (unsigned int v=0; v<dof_handler.tria->n_vertices(); ++v)
             if (locally_used_vertices[v] == true)
               if (dof_handler.tria->vertex_used(v) == true)
@@ -137,14 +142,17 @@ namespace internal
           unsigned int vertex_slots_needed = 0;
           for (unsigned int v=0; v<dof_handler.tria->n_vertices(); ++v)
             if (dof_handler.tria->vertex_used(v) == true)
-              {
-                dof_handler.vertex_dofs_offsets[v] = vertex_slots_needed;
+              if (locally_used_vertices[v] == true)
+                {
+                  dof_handler.vertex_dofs_offsets[v] = vertex_slots_needed;
 
-                for (unsigned int fe=0; fe<dof_handler.finite_elements->size(); ++fe)
-                  if (vertex_fe_association[fe][v] == true)
-                    vertex_slots_needed += (*dof_handler.finite_elements)[fe].dofs_per_vertex + 1;
-                ++vertex_slots_needed;
-              }
+                  for (unsigned int fe=0; fe<dof_handler.finite_elements->size(); ++fe)
+                    if (vertex_fe_association[fe][v] == true)
+                      vertex_slots_needed += (*dof_handler.finite_elements)[fe].dofs_per_vertex + 1;
+
+                  // don't forget the end_marker:
+                  ++vertex_slots_needed;
+                }
 
           // now allocate the space we have determined we need, and
           // set up the linked lists for each of the vertices
@@ -152,19 +160,20 @@ namespace internal
                                           numbers::invalid_dof_index);
           for (unsigned int v=0; v<dof_handler.tria->n_vertices(); ++v)
             if (dof_handler.tria->vertex_used(v) == true)
-              {
-                types::global_dof_index pointer = dof_handler.vertex_dofs_offsets[v];
-                for (unsigned int fe=0; fe<dof_handler.finite_elements->size(); ++fe)
-                  if (vertex_fe_association[fe][v] == true)
-                    {
-                      // if this vertex uses this fe, then set the
-                      // fe_index and move the pointer ahead
-                      dof_handler.vertex_dofs[pointer] = fe;
-                      pointer += (*dof_handler.finite_elements)[fe].dofs_per_vertex + 1;
-                    }
-                // finally place the end marker
-                dof_handler.vertex_dofs[pointer] = numbers::invalid_dof_index;
-              }
+              if (locally_used_vertices[v] == true)
+                {
+                  unsigned int current_index = dof_handler.vertex_dofs_offsets[v];
+                  for (unsigned int fe=0; fe<dof_handler.finite_elements->size(); ++fe)
+                    if (vertex_fe_association[fe][v] == true)
+                      {
+                        // if this vertex uses this fe, then set the
+                        // fe_index and move the pointer ahead
+                        dof_handler.vertex_dofs[current_index] = fe;
+                        current_index += (*dof_handler.finite_elements)[fe].dofs_per_vertex + 1;
+                      }
+                  // finally place the end marker
+                  dof_handler.vertex_dofs[current_index] = numbers::invalid_dof_index;
+                }
         }
 
 
@@ -349,13 +358,11 @@ namespace internal
           for (unsigned int level=0; level<dof_handler.tria->n_levels(); ++level)
             {
               dof_handler.levels[level]->dof_offsets
-                = std::vector<DoFLevel::offset_type> (
-                    dof_handler.tria->n_raw_quads(level),
-                    (DoFLevel::offset_type)(-1));
+                = std::vector<DoFLevel::offset_type> (dof_handler.tria->n_raw_quads(level),
+                                                      (DoFLevel::offset_type)(-1));
               dof_handler.levels[level]->cell_cache_offsets
-                = std::vector<DoFLevel::offset_type> (
-                    dof_handler.tria->n_raw_quads(level),
-                    (DoFLevel::offset_type)(-1));
+                = std::vector<DoFLevel::offset_type> (dof_handler.tria->n_raw_quads(level),
+                                                      (DoFLevel::offset_type)(-1));
 
               types::global_dof_index next_free_dof = 0;
               types::global_dof_index cache_size = 0;
@@ -365,7 +372,7 @@ namespace internal
               for (; cell!=endc; ++cell)
                 if (!cell->has_children()
                     &&
-                    (cell->is_locally_owned() || cell->is_ghost()))
+                    !cell->is_artificial())
                   {
                     dof_handler.levels[level]->dof_offsets[cell->index()] = next_free_dof;
                     next_free_dof += cell->get_fe().dofs_per_quad;
@@ -396,18 +403,30 @@ namespace internal
               for (; cell!=endc; ++cell)
                 if (!cell->has_children()
                     &&
-                    (cell->is_locally_owned() || cell->is_ghost()))
+                    !cell->is_artificial())
                   counter += cell->get_fe().dofs_per_quad;
 
               Assert (dof_handler.levels[level]->dof_indices.size() == counter,
                       ExcInternalError());
-              // Assert (static_cast<unsigned int>
-              //         (std::count (dof_handler.levels[level]->dof_offsets.begin(),
-              //                      dof_handler.levels[level]->dof_offsets.end(),
-              //                      (DoFLevel::offset_type)(-1)))
-              //         ==
-              //         dof_handler.tria->n_raw_quads(level) - dof_handler.tria->n_active_quads(level),
-              //         ExcInternalError());
+
+              // also check that the number of unassigned slots in the dof_offsets
+              // equals the number of cells on that level minus the number of
+              // active, non-artificial cells (because these are exactly the cells
+              // on which we do something)
+              unsigned int n_active_non_artificial_cells = 0;
+              for (cell=dof_handler.begin_active(level); cell!=endc; ++cell)
+                if (!cell->has_children()
+                    &&
+                    !cell->is_artificial())
+                  ++n_active_non_artificial_cells;
+
+              Assert (static_cast<unsigned int>
+                      (std::count (dof_handler.levels[level]->dof_offsets.begin(),
+                                   dof_handler.levels[level]->dof_offsets.end(),
+                                   (DoFLevel::offset_type)(-1)))
+                      ==
+                      dof_handler.tria->n_raw_quads(level) - n_active_non_artificial_cells,
+                      ExcInternalError());
             }
 #endif
 
@@ -451,8 +470,8 @@ namespace internal
                       // neighbor behind this face, or b) the neighbor
                       // is either coarser or finer than we are, or c)
                       // the neighbor is artificial, or d) the neighbor
-                      // is neither coarser nor finer, but happens to
-                      // have the same active_fe_index :
+                      // is neither coarser nor finer, nor is artificial,
+                      // and just so happens to have the same active_fe_index :
                       if (cell->at_boundary(face)
                           ||
                           cell->face(face)->has_children()
@@ -465,22 +484,26 @@ namespace internal
                           ||
                           (!cell->at_boundary(face)
                            &&
+                           !cell->neighbor(face)->is_artificial()
+                           &&
                            (cell->active_fe_index() == cell->neighbor(face)->active_fe_index())))
-                        // ok, one set of dofs. that makes one index, 1
+                        // ok, one set of dofs. that makes one active_fe_index, 1
                         // times dofs_per_line dofs, and one stop index
                         n_line_slots
-                        += (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line + 2;
+                        += 1 + (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line + 1;
 
                       // otherwise we do indeed need two sets, i.e. two
-                      // indices, two sets of dofs, and one stop index:
+                      // active_fe_indices, two sets of dofs, and one stop index:
                       else
                         n_line_slots
-                        += ((*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
+                        += (2
+                            +
+                            (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
                             +
                             (*dof_handler.finite_elements)[cell->neighbor(face)->active_fe_index()]
                             .dofs_per_line
                             +
-                            3);
+                            1);
 
                       // mark this face as visited
                       cell->face(face)->set_user_flag ();
@@ -523,6 +546,8 @@ namespace internal
                            cell->neighbor(face)->is_artificial())
                           ||
                           (!cell->at_boundary(face)
+                           &&
+                           !cell->neighbor(face)->is_artificial()
                            &&
                            (cell->active_fe_index() == cell->neighbor(face)->active_fe_index())))
                         {
