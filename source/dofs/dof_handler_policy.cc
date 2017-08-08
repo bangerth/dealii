@@ -2319,28 +2319,6 @@ namespace internal
 
         const unsigned int n_procs = Utilities::MPI::n_mpi_processes(tr->get_communicator());
 
-        // If the underlying shared::Tria allows artificial cells,
-        // then save the current set of subdomain ids, and set
-        // subdomain ids to the "true" owner of each cell. we later
-        // restore these flags
-        std::vector<types::subdomain_id> saved_subdomain_ids;
-        if (tr->with_artificial_cells())
-          {
-            saved_subdomain_ids.resize (tr->n_active_cells());
-
-            typename parallel::shared::Triangulation<dim,spacedim>::active_cell_iterator
-            cell = this->dof_handler->get_triangulation().begin_active(),
-            endc = this->dof_handler->get_triangulation().end();
-
-            const std::vector<types::subdomain_id> &true_subdomain_ids
-              = tr->get_true_subdomain_ids_of_cells();
-
-            for (unsigned int index=0; cell != endc; ++cell, ++index)
-              {
-                saved_subdomain_ids[index] = cell->subdomain_id();
-                cell->set_subdomain_id(true_subdomain_ids[index]);
-              }
-          }
 
         // first let the sequential algorithm do its magic. it is going to
         // enumerate DoFs on all cells, regardless of owner
@@ -2443,17 +2421,6 @@ namespace internal
               start_index = end_index;
             }
         }
-
-        // finally, restore current subdomain ids
-        if (tr->with_artificial_cells())
-          {
-            typename parallel::shared::Triangulation<dim,spacedim>::active_cell_iterator
-            cell = this->dof_handler->get_triangulation().begin_active(),
-            endc = this->dof_handler->get_triangulation().end();
-
-            for (unsigned int index=0; cell != endc; ++cell, ++index)
-              cell->set_subdomain_id(saved_subdomain_ids[index]);
-          }
 
         // return a NumberCache object made up from the sets of locally
         // owned DoFs

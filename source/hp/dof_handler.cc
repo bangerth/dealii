@@ -1443,7 +1443,32 @@ namespace hp
 
     finite_elements = &ff;
 
-    // This call ensures that the active_fe_indices vectors are
+    // If an underlying shared::Tria allows artificial cells,
+    // then save the current set of subdomain ids, and set
+    // subdomain ids to the "true" owner of each cell. we later
+    // restore these flags
+    std::vector<types::subdomain_id> saved_subdomain_ids;
+    if (const parallel::shared::Triangulation<dim, spacedim> *shared_tria =
+          (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim>*> (&get_triangulation())))
+      if (shared_tria->with_artificial_cells())
+        {
+          saved_subdomain_ids.resize (shared_tria->n_active_cells());
+
+          typename parallel::shared::Triangulation<dim,spacedim>::active_cell_iterator
+          cell = get_triangulation().begin_active(),
+          endc = get_triangulation().end();
+
+          const std::vector<types::subdomain_id> &true_subdomain_ids
+            = shared_tria->get_true_subdomain_ids_of_cells();
+
+          for (unsigned int index=0; cell != endc; ++cell, ++index)
+            {
+              saved_subdomain_ids[index] = cell->subdomain_id();
+              cell->set_subdomain_id(true_subdomain_ids[index]);
+            }
+        }
+
+    // ensure that the active_fe_indices vectors are
     // initialized correctly.
     create_active_fe_table ();
 
@@ -1475,11 +1500,18 @@ namespace hp
 
     /////////////////////////////////
 
+    // do some housekeeping: restore current subdomain ids and compress indices
+    if (const parallel::shared::Triangulation<dim, spacedim> *shared_tria =
+          (dynamic_cast<const parallel::shared::Triangulation<dim, spacedim>*> (&get_triangulation())))
+      if (shared_tria->with_artificial_cells())
+        {
+          typename parallel::shared::Triangulation<dim,spacedim>::active_cell_iterator
+          cell = get_triangulation().begin_active(),
+          endc = get_triangulation().end();
 
-    Assert ((dynamic_cast<const parallel::distributed::Triangulation< dim, spacedim >*>
-             (&this->get_triangulation())
-             == nullptr),
-            ExcNotImplemented());
+          for (unsigned int index=0; cell != endc; ++cell, ++index)
+            cell->set_subdomain_id(saved_subdomain_ids[index]);
+        }
 
     {
       Threads::TaskGroup<> tg;
