@@ -94,23 +94,36 @@ namespace internal
 
           for (typename HpDoFHandler<dim,spacedim>::active_cell_iterator
                cell=dof_handler.begin_active(); cell!=dof_handler.end(); ++cell)
-            for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; ++v)
-              vertex_fe_association[cell->active_fe_index()][cell->vertex_index(v)]
-                = true;
+            if (! cell->is_artificial())
+              for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; ++v)
+                vertex_fe_association[cell->active_fe_index()][cell->vertex_index(v)]
+                  = true;
 
           // in debug mode, make sure that each vertex is associated
           // with at least one fe (note that except for unused
-          // vertices, all vertices are actually active)
+          // vertices, all vertices are actually active). this is of
+          // course only true for vertices that are part of either
+          // ghost or locally owned cells, so figure out which
+          // vertices these are
 #ifdef DEBUG
+          std::vector<bool> locally_used_vertices (dof_handler.tria->n_vertices(),
+                                                   false);
+          for (typename HpDoFHandler<dim,spacedim>::active_cell_iterator
+               cell=dof_handler.begin_active(); cell!=dof_handler.end(); ++cell)
+            if (! cell->is_artificial())
+              for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; ++v)
+                locally_used_vertices[cell->vertex_index(v)] = true;
+
           for (unsigned int v=0; v<dof_handler.tria->n_vertices(); ++v)
-            if (dof_handler.tria->vertex_used(v) == true)
-              {
-                unsigned int fe=0;
-                for (; fe<dof_handler.finite_elements->size(); ++fe)
-                  if (vertex_fe_association[fe][v] == true)
-                    break;
-                Assert (fe != dof_handler.finite_elements->size(), ExcInternalError());
-              }
+            if (locally_used_vertices[v] == true)
+              if (dof_handler.tria->vertex_used(v) == true)
+                {
+                  unsigned int fe=0;
+                  for (; fe<dof_handler.finite_elements->size(); ++fe)
+                    if (vertex_fe_association[fe][v] == true)
+                      break;
+                  Assert (fe != dof_handler.finite_elements->size(), ExcInternalError());
+                }
 #endif
 
           // next count how much memory we actually need. for each
@@ -229,7 +242,9 @@ namespace internal
               cell=dof_handler.begin_active(level),
               endc=dof_handler.end_active(level);
               for (; cell!=endc; ++cell)
-                if (!cell->has_children())
+                if (!cell->has_children()
+                    &&
+                    (cell->is_locally_owned() || cell->is_ghost()))
                   {
                     dof_handler.levels[level]->dof_offsets[cell->index()] = next_free_dof;
                     next_free_dof += cell->get_fe().dofs_per_line;
@@ -258,7 +273,9 @@ namespace internal
               cell=dof_handler.begin_active(level),
               endc=dof_handler.end_active(level);
               for (; cell!=endc; ++cell)
-                if (!cell->has_children())
+                if (!cell->has_children()
+                    &&
+                    (cell->is_locally_owned() || cell->is_ghost()))
                   counter += cell->get_fe().dofs_per_line;
 
               Assert (dof_handler.levels[level]->dof_indices.size() == counter,
@@ -346,7 +363,9 @@ namespace internal
               cell=dof_handler.begin_active(level),
               endc=dof_handler.end_active(level);
               for (; cell!=endc; ++cell)
-                if (!cell->has_children())
+                if (!cell->has_children()
+                    &&
+                    (cell->is_locally_owned() || cell->is_ghost()))
                   {
                     dof_handler.levels[level]->dof_offsets[cell->index()] = next_free_dof;
                     next_free_dof += cell->get_fe().dofs_per_quad;
@@ -375,18 +394,20 @@ namespace internal
               cell=dof_handler.begin_active(level),
               endc=dof_handler.end_active(level);
               for (; cell!=endc; ++cell)
-                if (!cell->has_children())
+                if (!cell->has_children()
+                    &&
+                    (cell->is_locally_owned() || cell->is_ghost()))
                   counter += cell->get_fe().dofs_per_quad;
 
               Assert (dof_handler.levels[level]->dof_indices.size() == counter,
                       ExcInternalError());
-              Assert (static_cast<unsigned int>
-                      (std::count (dof_handler.levels[level]->dof_offsets.begin(),
-                                   dof_handler.levels[level]->dof_offsets.end(),
-                                   (DoFLevel::offset_type)(-1)))
-                      ==
-                      dof_handler.tria->n_raw_quads(level) - dof_handler.tria->n_active_quads(level),
-                      ExcInternalError());
+              // Assert (static_cast<unsigned int>
+              //         (std::count (dof_handler.levels[level]->dof_offsets.begin(),
+              //                      dof_handler.levels[level]->dof_offsets.end(),
+              //                      (DoFLevel::offset_type)(-1)))
+              //         ==
+              //         dof_handler.tria->n_raw_quads(level) - dof_handler.tria->n_active_quads(level),
+              //         ExcInternalError());
             }
 #endif
 
@@ -420,44 +441,50 @@ namespace internal
 
             for (typename HpDoFHandler<dim,spacedim>::active_cell_iterator
                  cell=dof_handler.begin_active(); cell!=dof_handler.end(); ++cell)
-              for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
-                if (! cell->face(face)->user_flag_set())
-                  {
-                    // ok, face has not been visited. so we need to
-                    // allocate space for it. let's see how much we
-                    // need: we need one set if a) there is no
-                    // neighbor behind this face, or b) the neighbor
-                    // is either coarser or finer than we are, or c)
-                    // the neighbor is neither coarser nor finer, but
-                    // has happens to have the same active_fe_index:
-                    if (cell->at_boundary(face)
-                        ||
-                        cell->face(face)->has_children()
-                        ||
-                        cell->neighbor_is_coarser(face)
-                        ||
-                        (!cell->at_boundary(face)
-                         &&
-                         (cell->active_fe_index() == cell->neighbor(face)->active_fe_index())))
-                      // ok, one set of dofs. that makes one index, 1
-                      // times dofs_per_line dofs, and one stop index
-                      n_line_slots
-                      += (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line + 2;
+              if (! cell->is_artificial())
+                for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
+                  if (! cell->face(face)->user_flag_set())
+                    {
+                      // ok, face has not been visited. so we need to
+                      // allocate space for it. let's see how much we
+                      // need: we need one set if a) there is no
+                      // neighbor behind this face, or b) the neighbor
+                      // is either coarser or finer than we are, or c)
+                      // the neighbor is artificial, or d) the neighbor
+                      // is neither coarser nor finer, but happens to
+                      // have the same active_fe_index :
+                      if (cell->at_boundary(face)
+                          ||
+                          cell->face(face)->has_children()
+                          ||
+                          cell->neighbor_is_coarser(face)
+                          ||
+                          (!cell->at_boundary(face)
+                           &&
+                           cell->neighbor(face)->is_artificial())
+                          ||
+                          (!cell->at_boundary(face)
+                           &&
+                           (cell->active_fe_index() == cell->neighbor(face)->active_fe_index())))
+                        // ok, one set of dofs. that makes one index, 1
+                        // times dofs_per_line dofs, and one stop index
+                        n_line_slots
+                        += (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line + 2;
 
-                    // otherwise we do indeed need two sets, i.e. two
-                    // indices, two sets of dofs, and one stop index:
-                    else
-                      n_line_slots
-                      += ((*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
-                          +
-                          (*dof_handler.finite_elements)[cell->neighbor(face)->active_fe_index()]
-                          .dofs_per_line
-                          +
-                          3);
+                      // otherwise we do indeed need two sets, i.e. two
+                      // indices, two sets of dofs, and one stop index:
+                      else
+                        n_line_slots
+                        += ((*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
+                            +
+                            (*dof_handler.finite_elements)[cell->neighbor(face)->active_fe_index()]
+                            .dofs_per_line
+                            +
+                            3);
 
-                    // mark this face as visited
-                    cell->face(face)->set_user_flag ();
-                  }
+                      // mark this face as visited
+                      cell->face(face)->set_user_flag ();
+                    }
 
             // now that we know how many line dofs we will have to
             // have on each level, allocate the memory. note that we
@@ -480,84 +507,89 @@ namespace internal
 
             for (typename HpDoFHandler<dim,spacedim>::active_cell_iterator
                  cell=dof_handler.begin_active(); cell!=dof_handler.end(); ++cell)
-              for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
-                if (! cell->face(face)->user_flag_set())
-                  {
-                    // same decision tree as before
-                    if (cell->at_boundary(face)
-                        ||
-                        cell->face(face)->has_children()
-                        ||
-                        cell->neighbor_is_coarser(face)
-                        ||
-                        (!cell->at_boundary(face)
-                         &&
-                         (cell->active_fe_index() == cell->neighbor(face)->active_fe_index())))
-                      {
-                        dof_handler.faces
-                        ->lines.dof_offsets[cell->face(face)->index()]
-                          = next_free_line_slot;
+              if (! cell->is_artificial())
+                for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
+                  if (! cell->face(face)->user_flag_set())
+                    {
+                      // same decision tree as before
+                      if (cell->at_boundary(face)
+                          ||
+                          cell->face(face)->has_children()
+                          ||
+                          cell->neighbor_is_coarser(face)
+                          ||
+                          (!cell->at_boundary(face)
+                           &&
+                           cell->neighbor(face)->is_artificial())
+                          ||
+                          (!cell->at_boundary(face)
+                           &&
+                           (cell->active_fe_index() == cell->neighbor(face)->active_fe_index())))
+                        {
+                          dof_handler.faces
+                          ->lines.dof_offsets[cell->face(face)->index()]
+                            = next_free_line_slot;
 
-                        // set first slot for this line to
-                        // active_fe_index of this face
-                        dof_handler.faces
-                        ->lines.dofs[next_free_line_slot]
-                          = cell->active_fe_index();
+                          // set first slot for this line to
+                          // active_fe_index of this face
+                          dof_handler.faces
+                          ->lines.dofs[next_free_line_slot]
+                            = cell->active_fe_index();
 
-                        // the next dofs_per_line indices remain unset
-                        // for the moment (i.e. at invalid_dof_index).
-                        // following this comes the stop index, which
-                        // also is invalid_dof_index and therefore
-                        // does not have to be explicitly set
+                          // the next dofs_per_line indices remain unset
+                          // for the moment (i.e. at invalid_dof_index).
+                          // following this comes the stop index, which
+                          // also is invalid_dof_index and therefore
+                          // does not have to be explicitly set
 
-                        // finally, mark those slots as used
-                        next_free_line_slot
-                        += (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line + 2;
-                      }
-                    else
-                      {
-                        dof_handler.faces
-                        ->lines.dof_offsets[cell->face(face)->index()]
-                          = next_free_line_slot;
+                          // finally, mark those slots as used
+                          next_free_line_slot
+                          += (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line + 2;
+                        }
+                      else
+                        {
+                          dof_handler.faces
+                          ->lines.dof_offsets[cell->face(face)->index()]
+                            = next_free_line_slot;
 
-                        // set first slot for this line to
-                        // active_fe_index of this face
-                        dof_handler.faces
-                        ->lines.dofs[next_free_line_slot]
-                          = cell->active_fe_index();
+                          // set first slot for this line to
+                          // active_fe_index of this face
+                          dof_handler.faces
+                          ->lines.dofs[next_free_line_slot]
+                            = cell->active_fe_index();
 
-                        // the next dofs_per_line indices remain unset
-                        // for the moment (i.e. at invalid_dof_index).
-                        //
-                        // then comes the fe_index for the neighboring
-                        // cell:
-                        dof_handler.faces
-                        ->lines.dofs[next_free_line_slot
-                                     +
-                                     (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
-                                     +
-                                     1]
-                          = cell->neighbor(face)->active_fe_index();
-                        // then again a set of dofs that we need not
-                        // set right now
-                        //
-                        // following this comes the stop index, which
-                        // also is invalid_dof_index and therefore
-                        // does not have to be explicitly set
+                          // the next dofs_per_line indices remain unset
+                          // for the moment (i.e. at invalid_dof_index).
+                          //
+                          // then comes the fe_index for the neighboring
+                          // cell:
+                          dof_handler.faces
+                          ->lines.dofs[next_free_line_slot
+                                       +
+                                       (*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
+                                       +
+                                       1]
+                            = cell->neighbor(face)->active_fe_index();
+                          // then again a set of dofs that we need not
+                          // set right now
+                          //
+                          // following this comes the stop index, which
+                          // also is invalid_dof_index and therefore
+                          // does not have to be explicitly set
 
-                        // finally, mark those slots as used
-                        next_free_line_slot
-                        += ((*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
-                            +
-                            (*dof_handler.finite_elements)[cell->neighbor(face)->active_fe_index()]
-                            .dofs_per_line
-                            +
-                            3);
-                      }
+                          // finally, mark those slots as used
+                          next_free_line_slot
+                          += ((*dof_handler.finite_elements)[cell->active_fe_index()].dofs_per_line
+                              +
+                              (*dof_handler.finite_elements)[cell->neighbor(face)->active_fe_index()]
+                              .dofs_per_line
+                              +
+                              3);
+                        }
 
-                    // mark this face as visited
-                    cell->face(face)->set_user_flag ();
-                  }
+                      // mark this face as visited
+                      cell->face(face)->set_user_flag ();
+                    }
 
             // we should have moved the cursor for each level to the
             // total number of dofs on that level. check that
@@ -642,7 +674,9 @@ namespace internal
               cell=dof_handler.begin_active(level),
               endc=dof_handler.end_active(level);
               for (; cell!=endc; ++cell)
-                if (!cell->has_children())
+                if (!cell->has_children()
+                    &&
+                    (cell->is_locally_owned() || cell->is_ghost()))
                   {
                     dof_handler.levels[level]->dof_offsets[cell->index()] = next_free_dof;
                     next_free_dof += cell->get_fe().dofs_per_hex;
@@ -671,7 +705,9 @@ namespace internal
               cell=dof_handler.begin_active(level),
               endc=dof_handler.end_active(level);
               for (; cell!=endc; ++cell)
-                if (!cell->has_children())
+                if (!cell->has_children()
+                    &&
+                    (cell->is_locally_owned() || cell->is_ghost()))
                   counter += cell->get_fe().dofs_per_hex;
 
               Assert (dof_handler.levels[level]->dof_indices.size() == counter,
@@ -1414,9 +1450,10 @@ namespace hp
     // up front make sure that the fe collection is large enough to
     // cover all fe indices presently in use on the mesh
     for (active_cell_iterator cell = begin_active(); cell != end(); ++cell)
-      Assert (cell->active_fe_index() < finite_elements->size(),
-              ExcInvalidFEIndex (cell->active_fe_index(),
-                                 finite_elements->size()));
+      if (cell->is_locally_owned())
+        Assert (cell->active_fe_index() < finite_elements->size(),
+                ExcInvalidFEIndex (cell->active_fe_index(),
+                                   finite_elements->size()));
 
 
     // then allocate space for all the other tables
