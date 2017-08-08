@@ -3750,17 +3750,11 @@ DoFCellAccessor<DoFHandlerType,level_dof_access>::active_fe_index () const
   Assert ((dynamic_cast<const dealii::DoFHandler<DoFHandlerType::dimension,DoFHandlerType::space_dimension>*>
            (this->dof_handler) != nullptr)
           ||
-          (this->has_children() == false),
-          ExcMessage ("You can not ask for the active_fe_index on a cell that has "
-                      "children because no degrees of freedom are assigned "
-                      "to this cell and, consequently, no finite element "
-                      "is associated with it."));
-  Assert ((dynamic_cast<const dealii::DoFHandler<DoFHandlerType::dimension,DoFHandlerType::space_dimension>*>
-           (this->dof_handler) != nullptr)
+          this->has_children()
           ||
           (this->is_locally_owned() || this->is_ghost()),
-          ExcMessage ("You can only query active_fe_index information on cells "
-                      "that are either locally owned or (after distributing "
+          ExcMessage ("You can only query active_fe_index information on active "
+                      "cells that are either locally owned or (after distributing "
                       "degrees of freedom) are ghost cells."));
 
   return dealii::internal::DoFCellAccessor::Implementation::active_fe_index (*this);
@@ -3773,20 +3767,14 @@ inline
 void
 DoFCellAccessor<DoFHandlerType,level_dof_access>::set_active_fe_index (const unsigned int i)
 {
-  Assert ((dynamic_cast<const dealii::DoFHandler<DoFHandlerType::dimension,DoFHandlerType::space_dimension>*>
-           (this->dof_handler) != nullptr)
-          ||
-          (this->has_children() == false),
-          ExcMessage ("You can not set the active_fe_index on a cell that has "
-                      "children because no degrees of freedom will be assigned "
-                      "to this cell."));
-
   if (i != DoFHandlerType::default_fe_index)
     Assert ((dynamic_cast<const dealii::DoFHandler<DoFHandlerType::dimension,DoFHandlerType::space_dimension>*>
              (this->dof_handler) != nullptr)
             ||
+            this->has_children()
+            ||
             this->is_locally_owned(),
-            ExcMessage ("You can only set active_fe_index information on cells "
+            ExcMessage ("You can only set active_fe_index information on active cells "
                         "that are locally owned. On ghost cells, this information "
                         "will automatically be propagated from the owning process "
                         "of that cell, and there is no information at all on "

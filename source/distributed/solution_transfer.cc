@@ -240,7 +240,18 @@ namespace parallel
       typename DoFHandlerType::cell_iterator
       cell(*cell_, dof_handler);
 
-      const unsigned int dofs_per_cell=cell->get_fe().dofs_per_cell;
+      // get the number of unknowns on that cell. we allow querying
+      // the active_fe_index on non-active cells, but not calling
+      // get_fe() on such cells. this makes some sense since
+      // hp::DoFHandler does not support multilevel discretizations,
+      // and consequently attaching such flags to non-active cells can
+      // only be imagined as a way to temporarily store information --
+      // just like we do here.
+      //
+      // work around this by querying the information in a different
+      // way.
+      const unsigned int dofs_per_cell =
+        cell->get_dof_handler().get_fe()[cell->active_fe_index()].dofs_per_cell;
       ::dealii::Vector<typename VectorType::value_type> dofvalues(dofs_per_cell);
       const typename VectorType::value_type *data_store = reinterpret_cast<const typename VectorType::value_type *>(data);
 
@@ -249,7 +260,9 @@ namespace parallel
            ++it)
         {
           std::memcpy(&dofvalues(0), data_store, sizeof(typename VectorType::value_type)*dofs_per_cell);
-          cell->set_dof_values_by_interpolation(dofvalues, *(*it));
+          cell->set_dof_values_by_interpolation(dofvalues,
+                                                *(*it),
+                                                cell->active_fe_index());
           data_store += dofs_per_cell;
         }
     }
