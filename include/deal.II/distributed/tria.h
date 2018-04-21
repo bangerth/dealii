@@ -32,6 +32,7 @@
 #include <utility>
 #include <functional>
 #include <tuple>
+#include <unordered_map>
 #include <type_traits>
 
 #ifdef DEAL_II_WITH_MPI
@@ -880,8 +881,24 @@ namespace parallel
         std::map<unsigned int, pack_callback_t> pack_callbacks;
       };
 
-      CellAttachedData cell_attached_data;
+      /**
+       * Vector of pairs of p4est quadrants and dealii cells.
+       * This makes a one to one correlation possible and allows for parallelization in the future.
+       *
+       * To write its contents, call set_quadrant_cell_pairs().
+       */
+      std::unordered_map< typename dealii::internal::p4est::types<dim>::quadrant*,
+                          typename Triangulation<dim,spacedim>::cell_iterator> map_quadrant_cell;
 
+      /**
+       * Go through all p4est trees and and store them in quadrant_cell_pairs.
+       */
+      void setup_quadrant_cell_map();
+
+      void
+      setup_quadrant_cell_map_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                           const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                           const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell);
       /**
        * Two arrays that store which p4est tree corresponds to which coarse
        * grid cell and vice versa. We need these arrays because p4est goes

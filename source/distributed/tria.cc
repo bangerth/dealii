@@ -1309,7 +1309,8 @@ namespace parallel
       triangulation_has_content (false),
       connectivity (nullptr),
       parallel_forest (nullptr),
-      cell_attached_data ({0, 0, 0, {}})
+      cell_attached_data ({0, 0, 0, {}}),
+      map_quadrant_cell ()
     {
       parallel_ghost = nullptr;
     }
@@ -3771,6 +3772,104 @@ namespace parallel
         }
 
       return weights;
+    }
+
+
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim,spacedim>::
+    setup_quadrant_cell_map ()
+    {
+      // if we stick to using a map, we do not have to reserve memory
+      map_quadrant_cell.clear();
+
+      // recurse over p4est
+      for (typename Triangulation<dim, spacedim>::cell_iterator
+           cell = this->begin (0);
+           cell != this->end (0);
+           ++cell)
+        {
+          // skip coarse cells that are not ours
+          if (tree_exists_locally<dim, spacedim> (parallel_forest,
+                                                  coarse_cell_to_p4est_tree_permutation[cell->index() ])
+              == false)
+            continue;
+
+
+          // grab pointer to p4est tree, corresponding to top level dealii cell
+          typename dealii::internal::p4est::types<dim>::tree *tree =
+            init_tree (cell->index());
+
+          // create top level p4est quadrant to start recursion
+          typename dealii::internal::p4est::types<dim>::quadrant p4est_coarse_cell;
+          dealii::internal::p4est::init_coarse_quadrant<dim> (p4est_coarse_cell);
+
+          setup_quadrant_cell_map_recursively (*tree,
+                                               cell,
+                                               p4est_coarse_cell);
+        }
+    }
+
+
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::
+    setup_quadrant_cell_map_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                         const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                         const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell)
+    {
+      int idx = sc_array_bsearch(const_cast<sc_array_t *>(&tree.quadrants),
+                                 &p4est_cell,
+                                 dealii::internal::p4est::functions<dim>::quadrant_compare);
+      if (idx == -1 && (dealii::internal::p4est::functions<dim>::
+                        quadrant_overlaps_tree (const_cast<typename dealii::internal::p4est::types<dim>::tree *>(&tree),
+                                                &p4est_cell)
+                        == false))
+        // this quadrant and none of its children belong to us.
+        return;
+
+      // save pair
+      {
+        auto pair = std::make_pair(const_cast<typename dealii::internal::p4est::types<dim>::quadrant *>(&p4est_cell), dealii_cell);
+        map_quadrant_cell.insert (pair);
+      }
+
+      // recurse further if both p4est and dealii still have children,
+      // so that we do not run into a dead end in one of the trees
+      bool p4est_has_children = (idx == -1);
+      if ( p4est_has_children && dealii_cell->has_children() )
+      {
+        //recurse further
+        typename dealii::internal::p4est::types<dim>::quadrant
+        p4est_child[GeometryInfo<dim>::max_children_per_cell];
+
+        for (unsigned int c=0; c<GeometryInfo<dim>::max_children_per_cell; ++c)
+          switch (dim)
+            {
+            case 2:
+              P4EST_QUADRANT_INIT(&p4est_child[c]);
+              break;
+            case 3:
+              P8EST_QUADRANT_INIT(&p4est_child[c]);
+              break;
+            default:
+              Assert (false, ExcNotImplemented());
+            }
+
+        dealii::internal::p4est::functions<dim>::
+        quadrant_childrenv (&p4est_cell, p4est_child);
+
+        for (unsigned int c=0;
+             c<GeometryInfo<dim>::max_children_per_cell; ++c)
+          {
+
+            setup_quadrant_cell_map_recursively (tree,
+                                                 dealii_cell->child(c),
+                                                 p4est_child[c]);
+          }
+      }
     }
 
 
