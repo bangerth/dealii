@@ -895,12 +895,24 @@ namespace parallel
       /**
        * Go through all p4est trees and and store them in local_quadrant_cell_pairs.
        */
-      void setup_quadrant_cell_relations();
+      void store_quadrant_cell_relations();
 
       void
-      setup_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+      store_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
                                                  const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
                                                  const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell);
+
+      /**
+       * Add entry to local_quadrant_cell_relations. Merge information about dealii cell, quadrant_cell,
+       * and what needs to be done on tria (cell_status). Place information in order of p4est quadrants,
+       * using information gained from tree and idx.
+       */
+      inline void
+      store_single_quadrant_cell_relation (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                           const unsigned int idx,
+                                           const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                           const typename Triangulation<dim,spacedim>::CellStatus status);
+
       /**
        * Two arrays that store which p4est tree corresponds to which coarse
        * grid cell and vice versa. We need these arrays because p4est goes

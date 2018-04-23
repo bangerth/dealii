@@ -3779,7 +3779,7 @@ namespace parallel
     template <int dim, int spacedim>
     void
     Triangulation<dim,spacedim>::
-    setup_quadrant_cell_relations()
+    store_quadrant_cell_relations()
     {
       // clear and reserve memory for local_quadrant_cell_pairs
       local_quadrant_cell_relations.clear ();
@@ -3805,7 +3805,7 @@ namespace parallel
           typename dealii::internal::p4est::types<dim>::tree *tree =
             init_tree (cell->index());
 
-          setup_quadrant_cell_relations_recursively (*tree,
+          store_quadrant_cell_relations_recursively (*tree,
                                                      cell,
                                                      p4est_coarse_cell);
         }
@@ -3816,7 +3816,7 @@ namespace parallel
     template <int dim, int spacedim>
     void
     Triangulation<dim, spacedim>::
-    setup_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+    store_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
                                                const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
                                                const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell)
     {
@@ -3859,7 +3859,7 @@ namespace parallel
           for (unsigned int c=0;
                c<GeometryInfo<dim>::max_children_per_cell; ++c)
             {
-              setup_quadrant_cell_relations_recursively (tree,
+              store_quadrant_cell_relations_recursively (tree,
                                                          dealii_cell->child(c),
                                                          p4est_child[c]);
             }
@@ -3868,12 +3868,10 @@ namespace parallel
         {
           // this active cell didn't change
           // save tuple into corresponding position
-          const unsigned int local_quadrant_index = tree.quadrants_offset + idx;
-          auto tuple = std::make_tuple(const_cast<typename dealii::internal::p4est::types<dim>::quadrant *>(&p4est_cell),
-                                       Triangulation<dim,spacedim>::CELL_PERSIST,
-                                       dealii_cell);
-
-          local_quadrant_cell_relations[local_quadrant_index] = tuple;
+          store_single_quadrant_cell_relation(tree,
+                                              idx,
+                                              dealii_cell,
+                                              Triangulation<dim,spacedim>::CELL_PERSIST);
         }
       else if (p4est_has_children) // && !dealii_cell->has_children()
         {
@@ -3908,35 +3906,53 @@ namespace parallel
               int child_idx = sc_array_bsearch(const_cast<sc_array_t *>(&tree.quadrants),
                                                &p4est_child[i],
                                                dealii::internal::p4est::functions<dim>::quadrant_compare);
-//            q = static_cast<typename dealii::internal::p4est::types<dim>::quadrant *> (
-//                  sc_array_index (const_cast<sc_array_t *>(&tree.quadrants), child_idx)
-//                );
+
               auto cell_status = (i==0) ? Triangulation<dim,spacedim>::CELL_REFINE
                                  : Triangulation<dim,spacedim>::CELL_INVALID;
 
-              const unsigned int local_quadrant_index = tree.quadrants_offset + child_idx;
-              auto tuple = std::make_tuple(&p4est_child[i],
-                                           cell_status,
-                                           dealii_cell);
-              local_quadrant_cell_relations[local_quadrant_index] = tuple;
+              store_single_quadrant_cell_relation(tree,
+                                                  child_idx,
+                                                  dealii_cell,
+                                                  cell_status);
             }
         }
       else // !p4est_has_children && dealii_cell->has_children())
         {
           // its children got coarsened into this cell in p4est, but the dealii_cell
           // still has its children
-          const unsigned int local_quadrant_index = tree.quadrants_offset + idx;
-          auto tuple = std::make_tuple(const_cast<typename dealii::internal::p4est::types<dim>::quadrant *>(&p4est_cell),
-                                       Triangulation<dim,spacedim>::CELL_COARSEN,
-                                       dealii_cell);
-
-          local_quadrant_cell_relations[local_quadrant_index] = tuple;
-
-          // Note: Syntax similar to CELL_PERSIST case
-          // TODO: Write function that adds tuple to vector, instead of copy&paste
-          //       Args: tree, idx, quadrant, cell, status
-          //       Rename: idx -> quad_idx_wrt_tree
+          store_single_quadrant_cell_relation(tree,
+                                              idx,
+                                              dealii_cell,
+                                              Triangulation<dim,spacedim>::CELL_COARSEN);
         }
+    }
+
+
+
+    template <int dim, int spacedim>
+    inline void
+    Triangulation<dim, spacedim>::
+    store_single_quadrant_cell_relation (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                         const unsigned int idx,
+                                         const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                         const typename Triangulation<dim,spacedim>::CellStatus status)
+    {
+      const unsigned int local_quadrant_index = tree.quadrants_offset + idx;
+
+      auto q = static_cast<typename dealii::internal::p4est::types<dim>::quadrant *> (
+                 sc_array_index (const_cast<sc_array_t *>(&tree.quadrants), idx)
+               );
+      // TODO CHECK: Do we need the quadrant pointer at all?
+      //             Or is its position in the sc_array sufficient?
+      //             Store pairs (dealii_cell, cell_status) in order of
+      //             appearance of its corresponding quadrant?
+      //             (Then storing the corresponding tree would be interesting?)
+
+      auto tuple = std::make_tuple(q,
+                                   Triangulation<dim,spacedim>::CELL_COARSEN,
+                                   dealii_cell);
+
+      local_quadrant_cell_relations[local_quadrant_index] = tuple;
     }
 
 
