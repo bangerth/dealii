@@ -882,23 +882,25 @@ namespace parallel
       };
 
       /**
-       * Vector of pairs of p4est quadrants and dealii cells.
+       * Vector of tuples containing of p4est quadrant, dealii cells and their relation after refinement.
        * This makes a one to one correlation possible and allows for parallelization in the future.
        *
-       * To write its contents, call set_quadrant_cell_pairs().
+       * To write its contents, call set_quadrant_cell_pairs(). This vector will be ordered by the occurance of
+       * quadrants in the corresponding p4est sc_array., at which data for transfer will be packed.
        */
-      std::unordered_map< typename dealii::internal::p4est::types<dim>::quadrant*,
-                          typename Triangulation<dim,spacedim>::cell_iterator> map_quadrant_cell;
+      std::vector< std::tuple< typename dealii::internal::p4est::types<dim>::quadrant *,
+          typename Triangulation<dim,spacedim>::CellStatus,
+          typename Triangulation<dim,spacedim>::cell_iterator> > local_quadrant_cell_relations;
 
       /**
-       * Go through all p4est trees and and store them in quadrant_cell_pairs.
+       * Go through all p4est trees and and store them in local_quadrant_cell_pairs.
        */
-      void setup_quadrant_cell_map();
+      void setup_quadrant_cell_relations();
 
       void
-      setup_quadrant_cell_map_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
-                                           const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
-                                           const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell);
+      setup_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                                 const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                                 const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell);
       /**
        * Two arrays that store which p4est tree corresponds to which coarse
        * grid cell and vice versa. We need these arrays because p4est goes
