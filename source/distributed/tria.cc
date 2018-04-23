@@ -3949,7 +3949,7 @@ namespace parallel
       //             (Then storing the corresponding tree would be interesting?)
 
       auto tuple = std::make_tuple(q,
-                                   Triangulation<dim,spacedim>::CELL_COARSEN,
+                                   status,
                                    dealii_cell);
 
       local_quadrant_cell_relations[local_quadrant_index] = tuple;
