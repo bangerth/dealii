@@ -32,6 +32,7 @@
 #include <utility>
 #include <functional>
 #include <tuple>
+#include <unordered_map>
 #include <type_traits>
 
 #ifdef DEAL_II_WITH_MPI
@@ -880,7 +881,37 @@ namespace parallel
         std::map<unsigned int, pack_callback_t> pack_callbacks;
       };
 
-      CellAttachedData cell_attached_data;
+      /**
+       * Vector of tuples containing of p4est quadrant, dealii cells and their relation after refinement.
+       * This makes a one to one correlation possible and allows for parallelization in the future.
+       *
+       * To write its contents, call set_quadrant_cell_pairs(). This vector will be ordered by the occurance of
+       * quadrants in the corresponding p4est sc_array., at which data for transfer will be packed.
+       */
+      std::vector< std::tuple< typename dealii::internal::p4est::types<dim>::quadrant *,
+          typename Triangulation<dim,spacedim>::CellStatus,
+          typename Triangulation<dim,spacedim>::cell_iterator> > local_quadrant_cell_relations;
+
+      /**
+       * Go through all p4est trees and and store them in local_quadrant_cell_pairs.
+       */
+      void store_quadrant_cell_relations();
+
+      void
+      store_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                                 const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                                 const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell);
+
+      /**
+       * Add entry to local_quadrant_cell_relations. Merge information about dealii cell, quadrant_cell,
+       * and what needs to be done on tria (cell_status). Place information in order of p4est quadrants,
+       * using information gained from tree and idx.
+       */
+      inline void
+      store_single_quadrant_cell_relation (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                           const unsigned int idx,
+                                           const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                           const typename Triangulation<dim,spacedim>::CellStatus status);
 
       /**
        * Two arrays that store which p4est tree corresponds to which coarse

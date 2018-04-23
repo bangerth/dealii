@@ -1309,7 +1309,8 @@ namespace parallel
       triangulation_has_content (false),
       connectivity (nullptr),
       parallel_forest (nullptr),
-      cell_attached_data ({0, 0, 0, {}})
+      cell_attached_data ({0, 0, 0, {}}),
+      local_quadrant_cell_relations ()
     {
       parallel_ghost = nullptr;
     }
@@ -3771,6 +3772,187 @@ namespace parallel
         }
 
       return weights;
+    }
+
+
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim,spacedim>::
+    store_quadrant_cell_relations()
+    {
+      // clear and reserve memory for local_quadrant_cell_pairs
+      local_quadrant_cell_relations.clear ();
+      local_quadrant_cell_relations.reserve (parallel_forest->local_num_quadrants);
+
+      // recurse over p4est
+      for (typename Triangulation<dim, spacedim>::cell_iterator
+           cell = this->begin (0);
+           cell != this->end (0);
+           ++cell)
+        {
+          // skip coarse cells that are not ours
+          if (tree_exists_locally<dim, spacedim> (parallel_forest,
+                                                  coarse_cell_to_p4est_tree_permutation[cell->index() ])
+              == false)
+            continue;
+
+          // initialize auxiallary top level p4est quadrant
+          typename dealii::internal::p4est::types<dim>::quadrant p4est_coarse_cell;
+          dealii::internal::p4est::init_coarse_quadrant<dim> (p4est_coarse_cell);
+
+          // determine tree to start recursion on
+          typename dealii::internal::p4est::types<dim>::tree *tree =
+            init_tree (cell->index());
+
+          store_quadrant_cell_relations_recursively (*tree,
+                                                     cell,
+                                                     p4est_coarse_cell);
+        }
+    }
+
+
+
+    template <int dim, int spacedim>
+    void
+    Triangulation<dim, spacedim>::
+    store_quadrant_cell_relations_recursively (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                               const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                               const typename dealii::internal::p4est::types<dim>::quadrant &p4est_cell)
+    {
+      // find index of p4est_cell in the quadrants array of the corresponding tree
+      int idx = sc_array_bsearch(const_cast<sc_array_t *>(&tree.quadrants),
+                                 &p4est_cell,
+                                 dealii::internal::p4est::functions<dim>::quadrant_compare);
+      if (idx == -1 && (dealii::internal::p4est::functions<dim>::
+                        quadrant_overlaps_tree (const_cast<typename dealii::internal::p4est::types<dim>::tree *>(&tree),
+                                                &p4est_cell)
+                        == false))
+        // this quadrant and none of its children belong to us.
+        return;
+
+      // recurse further if both p4est and dealii still have children,
+      // so that we do not run into a dead end in one of the trees
+      bool p4est_has_children = (idx == -1);
+      if ( p4est_has_children && dealii_cell->has_children() )
+        {
+          //recurse further
+          typename dealii::internal::p4est::types<dim>::quadrant
+          p4est_child[GeometryInfo<dim>::max_children_per_cell];
+
+          for (unsigned int c=0; c<GeometryInfo<dim>::max_children_per_cell; ++c)
+            switch (dim)
+              {
+              case 2:
+                P4EST_QUADRANT_INIT(&p4est_child[c]);
+                break;
+              case 3:
+                P8EST_QUADRANT_INIT(&p4est_child[c]);
+                break;
+              default:
+                Assert (false, ExcNotImplemented());
+              }
+
+          dealii::internal::p4est::functions<dim>::
+          quadrant_childrenv (&p4est_cell, p4est_child);
+
+          for (unsigned int c=0;
+               c<GeometryInfo<dim>::max_children_per_cell; ++c)
+            {
+              store_quadrant_cell_relations_recursively (tree,
+                                                         dealii_cell->child(c),
+                                                         p4est_child[c]);
+            }
+        }
+      else if (!p4est_has_children && !dealii_cell->has_children())
+        {
+          // this active cell didn't change
+          // save tuple into corresponding position
+          store_single_quadrant_cell_relation(tree,
+                                              idx,
+                                              dealii_cell,
+                                              Triangulation<dim,spacedim>::CELL_PERSIST);
+        }
+      else if (p4est_has_children) // && !dealii_cell->has_children()
+        {
+          // this cell got refined in p4est, but the dealii_cell has not yet been
+          // refined
+
+          // this quadrant is not active
+          // generate its children, and store information in those
+          typename dealii::internal::p4est::types<dim>::quadrant
+          p4est_child[GeometryInfo<dim>::max_children_per_cell];
+          for (unsigned int c=0; c<GeometryInfo<dim>::max_children_per_cell; ++c)
+            switch (dim)
+              {
+              case 2:
+                P4EST_QUADRANT_INIT(&p4est_child[c]);
+                break;
+              case 3:
+                P8EST_QUADRANT_INIT(&p4est_child[c]);
+                break;
+              default:
+                Assert (false, ExcNotImplemented());
+              }
+
+          dealii::internal::p4est::functions<dim>::
+          quadrant_childrenv (&p4est_cell, p4est_child);
+
+          // mark first child with CELL_REFINE and the remaining children with CELL_INVALID,
+          // but associate them with all with the parent cell
+          // unpack algorithm shall be called only on CELL_REFINE flagged quadrant
+          for (unsigned int i=0; i<GeometryInfo<dim>::max_children_per_cell; ++i)
+            {
+              int child_idx = sc_array_bsearch(const_cast<sc_array_t *>(&tree.quadrants),
+                                               &p4est_child[i],
+                                               dealii::internal::p4est::functions<dim>::quadrant_compare);
+
+              auto cell_status = (i==0) ? Triangulation<dim,spacedim>::CELL_REFINE
+                                 : Triangulation<dim,spacedim>::CELL_INVALID;
+
+              store_single_quadrant_cell_relation(tree,
+                                                  child_idx,
+                                                  dealii_cell,
+                                                  cell_status);
+            }
+        }
+      else // !p4est_has_children && dealii_cell->has_children())
+        {
+          // its children got coarsened into this cell in p4est, but the dealii_cell
+          // still has its children
+          store_single_quadrant_cell_relation(tree,
+                                              idx,
+                                              dealii_cell,
+                                              Triangulation<dim,spacedim>::CELL_COARSEN);
+        }
+    }
+
+
+
+    template <int dim, int spacedim>
+    inline void
+    Triangulation<dim, spacedim>::
+    store_single_quadrant_cell_relation (const typename dealii::internal::p4est::types<dim>::tree &tree,
+                                         const unsigned int idx,
+                                         const typename Triangulation<dim,spacedim>::cell_iterator &dealii_cell,
+                                         const typename Triangulation<dim,spacedim>::CellStatus status)
+    {
+      const unsigned int local_quadrant_index = tree.quadrants_offset + idx;
+
+      auto q = static_cast<typename dealii::internal::p4est::types<dim>::quadrant *> (
+                 sc_array_index (const_cast<sc_array_t *>(&tree.quadrants), idx)
+               );
+      // TODO CHECK: Do we need the quadrant pointer at all?
+      //             Or is its position in the sc_array sufficient?
+      //             Store pairs (dealii_cell, cell_status) in order of
+      //             appearance of its corresponding quadrant?
+      //             (Then storing the corresponding tree would be interesting?)
+
+      auto tuple = std::make_tuple(q,
+                                   status,
+                                   dealii_cell);
+
+      local_quadrant_cell_relations[local_quadrant_index] = tuple;
     }
 
 
