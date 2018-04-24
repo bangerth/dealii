@@ -133,6 +133,21 @@ namespace PETScWrappers
                            const bool                 preset_nonzero_locations = true);
 
     /**
+     * Copy constructor between objects of the current type. This
+     * is an expensive operation, and so is not offered to avoid
+     * unintended performance problems.
+     */
+    SparseMatrix(const SparseMatrix &) = delete;
+
+    /**
+     * Assignment operator between objects of the current type. This
+     * is an expensive operation, and so is not offered to avoid
+     * unintended performance problems.
+     */
+    SparseMatrix &operator= (const SparseMatrix &) = delete;
+
+
+    /**
      * This operator assigns a scalar to a matrix. Since this does usually not
      * make much sense (should we set all matrix entries to this value? Only
      * the nonzero entries of the sparsity pattern?), this operation is only
@@ -230,15 +245,6 @@ namespace PETScWrappers
                  const SparseMatrix &B,
                  const MPI::Vector &V = MPI::Vector()) const;
   private:
-
-    /**
-     * Purposefully not implemented
-     */
-    SparseMatrix(const SparseMatrix &) = delete;
-    /**
-     * Purposefully not implemented
-     */
-    SparseMatrix &operator= (const SparseMatrix &) = delete;
 
     /**
      * Do the actual work for the respective reinit() function and the
