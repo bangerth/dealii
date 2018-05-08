@@ -20,21 +20,15 @@
 // @sect3{Include files}
 // The program starts with the usual include files, all of which you should
 // have seen before by now:
-#include <deal.II/base/utilities.h>
-#include <deal.II/base/quadrature_lib.h>
-#include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/solver_cg.h>
-#include <deal.II/lac/precondition.h>
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_refinement.h>
-#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria_accessor.h>
 #include <deal.II/grid/tria_iterator.h>
 #include <deal.II/dofs/dof_handler.h>
@@ -45,7 +39,6 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/error_estimator.h>
-#include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/matrix_tools.h>
 
 #include <fstream>
@@ -69,33 +62,319 @@ namespace Step58
 
   private:
     void setup_system();
-    void solve_time_step();
+    void assemble_matrices ();
+    void do_half_phase_step ();
+    void do_full_spatial_step ();
     void output_results() const;
-    void refine_mesh (const unsigned int min_grid_level,
-                      const unsigned int max_grid_level);
 
-    Triangulation<dim>   triangulation;
-    FE_Q<dim>            fe;
-    DoFHandler<dim>      dof_handler;
 
-    ConstraintMatrix     constraints;
+    Triangulation<dim>                  triangulation;
+    FE_Q<dim>                           fe;
+    DoFHandler<dim>                     dof_handler;
 
-    SparsityPattern      sparsity_pattern;
-    SparseMatrix<double> mass_matrix;
-    SparseMatrix<double> laplace_matrix;
-    SparseMatrix<double> system_matrix;
+    ConstraintMatrix                    constraints;
 
-    Vector<double>       solution;
-    Vector<double>       old_solution;
-    Vector<double>       system_rhs;
+    SparsityPattern                     sparsity_pattern;
+    SparseMatrix<std::complex<double> > system_matrix;
+    SparseMatrix<std::complex<double> > rhs_matrix;
 
-    double               time;
-    double               time_step;
-    unsigned int         timestep_number;
+    Vector<std::complex<double> >       solution;
+    Vector<std::complex<double> >       old_solution;
+    Vector<std::complex<double> >       system_rhs;
 
-    const double         theta;
+    double                              time;
+    double                              time_step;
+    unsigned int                        timestep_number;
+
+    double                              kappa;
   };
+
+
+
+  // @sect3{Equation data}
+
+  // Before we go on filling in the details of the main class, let us define
+  // the equation data corresponding to the problem, i.e. initial values, as
+  // well as a right hand side class. (We will reuse the initial conditions
+  // also for the boundary values, which we simply keep constant.) We do so
+  // using classes derived
+  // from the Function class template that has been used many times before, so
+  // the following should not look surprising. The only point of interest is
+  // that we here have a complex-valued problem, so we have to provide the
+  // second template argument of the Function class (which would otherwise
+  // default to `double`). Furthermore, the return type of the `value()`
+  // functions is then of course also complex.
+  //
+  // What precisely these functions return has been discussed at the end of
+  // the Introduction section.
+  template <int dim>
+  class InitialValues : public Function<dim, std::complex<double>>
+  {
+  public:
+    InitialValues () : Function<dim, std::complex<double>>(1) {}
+
+    virtual std::complex<double> value (const Point<dim>   &p,
+                                        const unsigned int  component = 0) const;
+  };
+
+
+
+  template <int dim>
+  std::complex<double> InitialValues<dim>::value (const Point<dim>  &p,
+                                                  const unsigned int component) const
+  {
+    (void) component;
+    Assert(component == 0, ExcIndexRange(component, 0, 1));
+
+    const std::complex<double> i(0, 1);
+
+    const double r   = p.norm();
+    const double phi = std::atan2(p(1),p(0));
+    return r * std::exp(i*phi);
+  }
+
+
+
+
+  // @sect3{Implementation of the <code>NonlinearSchroedingerEquation</code> class}
+
+  //
+  template <int dim>
+  NonlinearSchroedingerEquation<dim>::
+  NonlinearSchroedingerEquation ()
+    :
+    fe (2),
+    dof_handler (triangulation),
+    time (0),
+    time_step (1./64),
+    timestep_number (1),
+    kappa (1)
+  {}
+
+
+  // @sect4{WaveEquation::setup_system}
+
+  // The next function is the one that sets up the mesh, DoFHandler, and
+  // matrices and vectors at the beginning of the program, i.e. before the
+  // first time step. The first few lines are pretty much standard if you've
+  // read through the tutorial programs at least up to step-6:
+  template <int dim>
+  void NonlinearSchroedingerEquation<dim>::setup_system ()
+  {
+    GridGenerator::hyper_cube (triangulation, -1, 1);
+    triangulation.refine_global (5);
+
+    std::cout << "Number of active cells: "
+              << triangulation.n_active_cells()
+              << std::endl;
+
+    dof_handler.distribute_dofs (fe);
+
+    std::cout << "Number of degrees of freedom: "
+              << dof_handler.n_dofs()
+              << std::endl
+              << std::endl;
+
+    DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
+    DoFTools::make_sparsity_pattern (dof_handler, dsp);
+    sparsity_pattern.copy_from (dsp);
+
+    system_matrix.reinit (sparsity_pattern);
+    rhs_matrix.reinit (sparsity_pattern);
+
+    solution.reinit (dof_handler.n_dofs());
+    old_solution.reinit (dof_handler.n_dofs());
+    system_rhs.reinit (dof_handler.n_dofs());
+
+    constraints.close ();
+  }
+
+
+
+  template <int dim>
+  void NonlinearSchroedingerEquation<dim>::assemble_matrices()
+  {
+	  const QGauss<dim>  quadrature_formula(fe.degree + 1);
+
+	  FEValues<dim> fe_values (fe, quadrature_formula,
+	                           update_values    |  update_gradients |
+	                           update_quadrature_points  |  update_JxW_values);
+
+	  const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+	  const unsigned int   n_q_points    = quadrature_formula.size();
+
+	  FullMatrix<std::complex<double> >   cell_matrix_lhs (dofs_per_cell, dofs_per_cell);
+	  FullMatrix<std::complex<double> >   cell_matrix_rhs (dofs_per_cell, dofs_per_cell);
+
+	  std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+
+	  typename DoFHandler<dim>::active_cell_iterator
+	  cell = dof_handler.begin_active(),
+	  endc = dof_handler.end();
+	  for (; cell!=endc; ++cell)
+	    {
+	      cell_matrix_lhs = 0;
+	      cell_matrix_rhs = 0;
+
+	      fe_values.reinit (cell);
+
+	      for (unsigned int q_index=0; q_index<n_q_points; ++q_index)
+	        {
+	          for (unsigned int i=0; i<dofs_per_cell; ++i)
+	            {
+	              for (unsigned int j=0; j<dofs_per_cell; ++j)
+	                cell_matrix_lhs(i,j) += (fe_values.shape_grad(i,q_index) *
+	                                     fe_values.shape_grad(j,q_index) *
+	                                     fe_values.JxW(q_index));
+	            }
+	        }
+
+	      // Finally, transfer the contributions from @p cell_matrix and
+	      // @p cell_rhs into the global objects.
+	      cell->get_dof_indices (local_dof_indices);
+	      constraints.distribute_local_to_global (cell_matrix_lhs,
+	                                              local_dof_indices,
+	                                              system_matrix);
+	    }
+	  // Now we are done assembling the linear system. The constraint matrix took
+	  // care of applying the boundary conditions and also eliminated hanging node
+	  // constraints. The constrained nodes are still in the linear system (there
+	  // is a nonzero entry, chosen in a way that the matrix is well conditioned,
+	  // on the diagonal of the matrix and all other entries for this line are set
+	  // to zero) but the computed values are invalid (i.e., the correspond entry
+	  // in <code>system_rhs</code> is currently meaningless). We compute the
+	  // correct values for these nodes at the end of the <code>solve</code>
+	  // function.
+
+  }
+
+  // $\psi^{(3)}(t_{n+1}) &= e^{-i\kappa|\psi^{(2)}(t_{n+1})|^2 \tfrac
+  //  12\Delta t} \; \psi^{(2)}(t_{n+1})$.
+  template <int dim>
+  void NonlinearSchroedingerEquation<dim>::do_half_phase_step ()
+  {
+    for (auto &value : solution)
+      {
+        const std::complex<double> i (0,1);
+        const double               magnitude = std::abs(value);
+
+        value = std::exp(-i * kappa * magnitude*magnitude * (time_step/2)) * value;
+      }
+  }
+
+
+  template <int dim>
+  void NonlinearSchroedingerEquation<dim>::do_full_spatial_step ()
+  {}
+
+
+
+  namespace DataPostprocessors
+  {
+    template <int dim>
+    class ComplexMagnitude : public DataPostprocessorScalar<dim>
+    {
+    public:
+      ComplexMagnitude ();
+
+      virtual
+      void
+      evaluate_vector_field
+      (const DataPostprocessorInputs::Vector<dim> &inputs,
+       std::vector<Vector<double> >               &computed_quantities) const;
+    };
+
+    template <int dim>
+    ComplexMagnitude<dim>::ComplexMagnitude ()
+      :
+      DataPostprocessorScalar<dim> ("Magnitude",
+                                    update_values)
+    {}
+
+
+    template <int dim>
+    void
+    ComplexMagnitude<dim>::evaluate_vector_field
+    (const DataPostprocessorInputs::Vector<dim> &inputs,
+     std::vector<Vector<double> >               &computed_quantities) const
+    {
+      Assert(computed_quantities.size() == inputs.solution_values.size(),
+             ExcDimensionMismatch (computed_quantities.size(), inputs.solution_values.size()));
+
+      for (unsigned int i=0; i<computed_quantities.size(); i++)
+        {
+          Assert(computed_quantities[i].size() == 1,
+                 ExcDimensionMismatch (computed_quantities[i].size(), 1));
+          Assert(inputs.solution_values[i].size() == 2,
+                 ExcDimensionMismatch (inputs.solution_values[i].size(), 2));
+
+          computed_quantities[i](0)
+            = std::abs(std::complex<double>(inputs.solution_values[i](0),
+                                            inputs.solution_values[i](1)));
+        }
+    }
+  }
+
+
+  template <int dim>
+  void NonlinearSchroedingerEquation<dim>::output_results() const
+  {
+    Vector<double> magnitude (dof_handler.n_dofs());
+    Vector<double> phase (dof_handler.n_dofs());
+    for (unsigned int i=0; i<dof_handler.n_dofs(); ++i)
+      {
+        magnitude(i) = std::abs(solution(i));
+        phase(i)     = std::arg(solution(i));
+      }
+
+    //    DataPostprocessors::ComplexMagnitude<dim> complex_magnitude;
+
+    DataOut<dim> data_out;
+
+    data_out.attach_dof_handler (dof_handler);
+    data_out.add_data_vector (solution, "Psi");
+
+//    data_out.add_data_vector (solution, complex_magnitude);
+
+    data_out.add_data_vector (magnitude, "magnitude");
+    data_out.add_data_vector (phase, "phase");
+    data_out.build_patches ();
+
+    const std::string filename = "solution-" +
+                                 Utilities::int_to_string (timestep_number, 3) +
+                                 ".vtu";
+    std::ofstream output (filename);
+    data_out.write_vtu (output);
+  }
+
+
+
+  template <int dim>
+  void NonlinearSchroedingerEquation<dim>::run()
+  {
+    setup_system();
+
+    VectorTools::interpolate (dof_handler,
+                              InitialValues<dim>(),
+                              solution);
+
+    for (time=0; time<=5; time+=time_step, ++timestep_number)
+      {
+        std::cout << "Time step " << timestep_number
+                  << " at t=" << time
+                  << std::endl;
+
+        do_half_phase_step();
+        do_full_spatial_step();
+        do_half_phase_step();
+
+        output_results ();
+
+        old_solution = solution;
+      }
+  }
 }
+
 
 
 int main()
