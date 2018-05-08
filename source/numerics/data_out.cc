@@ -150,10 +150,16 @@ build_one_patch
               // we have to postprocess the data, so determine, which fields
               // have to be updated
               const UpdateFlags update_flags=postprocessor->get_needed_update_flags();
-              if (n_components == 1)
+              if ((n_components == 1)
+                  &&
+                  (this->dof_data[dataset]->is_complex_valued() == false))
                 {
                   // at each point there is only one component of value,
-                  // gradient etc.
+                  // gradient etc. based on the 'if' statement above, we
+                  // know that the solution is scalar and real-valued, so
+                  // we do not need to worry about getting any imaginary
+                  // components to the postprocessor, and we can safely
+                  // call the function that evaluates a scalar field
                   if (update_flags & update_values)
                     this->dof_data[dataset]->get_function_values (this_fe_patch_values,
                                                                   internal::DataOutImplementation::ComponentExtractor::real_part,
@@ -182,10 +188,16 @@ build_one_patch
                 }
               else
                 {
-                  scratch_data.resize_system_vectors (n_components);
+                  // At each point there we now have to evaluate a vector valued
+                  // function and its derivatives. It may be that the solution is
+                  // scalar and complex-valued, but we treat this as a vector
+                  // field with two components.
+                  //
+                  // Start by allocatating enough space for each component,
+                  // potentially times two if it is a complex-valued field
+                  scratch_data.resize_system_vectors (n_components *
+                                                      (this->dof_data[dataset]->is_complex_valued() ? 2 : 1));
 
-                  // at each point there is a vector valued function and its
-                  // derivative...
                   if (update_flags & update_values)
                     this->dof_data[dataset]->get_function_values (this_fe_patch_values,
                                                                   internal::DataOutImplementation::ComponentExtractor::real_part,
