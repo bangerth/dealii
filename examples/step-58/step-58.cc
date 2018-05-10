@@ -114,7 +114,7 @@ namespace Step58
     InitialValues () : Function<dim, std::complex<double>>(1) {}
 
     virtual std::complex<double> value (const Point<dim>   &p,
-                                        const unsigned int  component = 0) const;
+                                        const unsigned int  component = 0) const override;
   };
 
 
@@ -133,6 +133,29 @@ namespace Step58
     return r * std::exp(i*phi);
   }
 
+
+
+  template <int dim>
+  class Potential : public Function<dim>
+  {
+  public:
+    Potential () = default;
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const override;
+  };
+
+
+
+  template <int dim>
+  double
+  Potential<dim>::value (const Point<dim>  &p,
+                         const unsigned int component) const
+  {
+	    (void) component;
+	    Assert(component == 0, ExcIndexRange(component, 0, 1));
+
+	    return p*p;
+  }
 
 
 
@@ -194,58 +217,84 @@ namespace Step58
   template <int dim>
   void NonlinearSchroedingerEquation<dim>::assemble_matrices()
   {
-	  const QGauss<dim>  quadrature_formula(fe.degree + 1);
+    const QGauss<dim>  quadrature_formula(fe.degree + 1);
 
-	  FEValues<dim> fe_values (fe, quadrature_formula,
-	                           update_values    |  update_gradients |
-	                           update_quadrature_points  |  update_JxW_values);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points  |  update_JxW_values);
 
-	  const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-	  const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int   n_q_points    = quadrature_formula.size();
 
-	  FullMatrix<std::complex<double> >   cell_matrix_lhs (dofs_per_cell, dofs_per_cell);
-	  FullMatrix<std::complex<double> >   cell_matrix_rhs (dofs_per_cell, dofs_per_cell);
+    FullMatrix<std::complex<double> >   cell_matrix_lhs (dofs_per_cell, dofs_per_cell);
+    FullMatrix<std::complex<double> >   cell_matrix_rhs (dofs_per_cell, dofs_per_cell);
 
-	  std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+    std::vector<double> potential_values (n_q_points);
+    Potential<dim> potential;
 
-	  typename DoFHandler<dim>::active_cell_iterator
-	  cell = dof_handler.begin_active(),
-	  endc = dof_handler.end();
-	  for (; cell!=endc; ++cell)
-	    {
-	      cell_matrix_lhs = 0;
-	      cell_matrix_rhs = 0;
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = dof_handler.begin_active(),
+    endc = dof_handler.end();
+    for (; cell!=endc; ++cell)
+      {
+        cell_matrix_lhs = std::complex<double>(0.);
+        cell_matrix_rhs = std::complex<double>(0.);
 
-	      fe_values.reinit (cell);
+        fe_values.reinit (cell);
 
-	      for (unsigned int q_index=0; q_index<n_q_points; ++q_index)
-	        {
-	          for (unsigned int i=0; i<dofs_per_cell; ++i)
-	            {
-	              for (unsigned int j=0; j<dofs_per_cell; ++j)
-	                cell_matrix_lhs(i,j) += (fe_values.shape_grad(i,q_index) *
-	                                     fe_values.shape_grad(j,q_index) *
-	                                     fe_values.JxW(q_index));
-	            }
-	        }
+        potential.value_list (fe_values.get_quadrature_points(),
+                              potential_values);
 
-	      // Finally, transfer the contributions from @p cell_matrix and
-	      // @p cell_rhs into the global objects.
-	      cell->get_dof_indices (local_dof_indices);
-	      constraints.distribute_local_to_global (cell_matrix_lhs,
-	                                              local_dof_indices,
-	                                              system_matrix);
-	    }
-	  // Now we are done assembling the linear system. The constraint matrix took
-	  // care of applying the boundary conditions and also eliminated hanging node
-	  // constraints. The constrained nodes are still in the linear system (there
-	  // is a nonzero entry, chosen in a way that the matrix is well conditioned,
-	  // on the diagonal of the matrix and all other entries for this line are set
-	  // to zero) but the computed values are invalid (i.e., the correspond entry
-	  // in <code>system_rhs</code> is currently meaningless). We compute the
-	  // correct values for these nodes at the end of the <code>solve</code>
-	  // function.
+        for (unsigned int q_index=0; q_index<n_q_points; ++q_index)
+          {
+            for (unsigned int k=0; k<dofs_per_cell; ++k)
+              {
+                for (unsigned int l=0; l<dofs_per_cell; ++l)
+                  {
+                    const std::complex<double> i (0,1);
 
+                    cell_matrix_lhs(k,l) += (-i *
+                                             fe_values.shape_value(k,q_index) *
+                                             fe_values.shape_value(l,q_index)
+                                             +
+                                             time_step/4 *
+                                             fe_values.shape_grad(k,q_index) *
+                                             fe_values.shape_grad(l,q_index)
+                                             +
+                                             time_step/2 *
+                                             potential_values[q_index] *
+                                             fe_values.shape_value(k,q_index) *
+                                             fe_values.shape_value(l,q_index)
+                                            )
+                                            * fe_values.JxW(q_index);
+
+                    cell_matrix_lhs(k,l) += (-i *
+                                             fe_values.shape_value(k,q_index) *
+                                             fe_values.shape_value(l,q_index)
+                                             -
+                                             time_step/4 *
+                                             fe_values.shape_grad(k,q_index) *
+                                             fe_values.shape_grad(l,q_index)
+                                             -
+                                             time_step/2 *
+                                             potential_values[q_index] *
+                                             fe_values.shape_value(k,q_index) *
+                                             fe_values.shape_value(l,q_index)
+                                            )
+                                            * fe_values.JxW(q_index);
+                  }
+              }
+          }
+
+        cell->get_dof_indices (local_dof_indices);
+        constraints.distribute_local_to_global (cell_matrix_lhs,
+                                                local_dof_indices,
+                                                system_matrix);
+        constraints.distribute_local_to_global (cell_matrix_rhs,
+                                                local_dof_indices,
+                                                rhs_matrix);
+      }
   }
 
   // $\psi^{(3)}(t_{n+1}) &= e^{-i\kappa|\psi^{(2)}(t_{n+1})|^2 \tfrac
@@ -353,6 +402,7 @@ namespace Step58
   void NonlinearSchroedingerEquation<dim>::run()
   {
     setup_system();
+    assemble_matrices();
 
     VectorTools::interpolate (dof_handler,
                               InitialValues<dim>(),
