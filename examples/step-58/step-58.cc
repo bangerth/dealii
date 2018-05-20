@@ -123,14 +123,34 @@ namespace Step58
   std::complex<double> InitialValues<dim>::value (const Point<dim>  &p,
                                                   const unsigned int component) const
   {
+    static_assert (dim == 2, "This initial condition only works in 2d.");
+
     (void) component;
     Assert(component == 0, ExcIndexRange(component, 0, 1));
 
+
+    std::complex<double> value = {1,0};
+
+    const std::vector<Point<dim>> vortex_centers = {{ 0,   -0.5 },
+      { 0,   +0.5 },
+      { 0.5,  0   }
+    };
+    const std::vector<double> vortex_strengths = { 1, 1, 1 };
+    AssertDimension (vortex_centers.size(),
+                     vortex_strengths.size());
+
     const std::complex<double> i(0, 1);
 
-    const double r   = p.norm();
-    const double phi = std::atan2(p(1),p(0));
-    return r * std::exp(i*phi);
+    for (unsigned int c=0; c<vortex_centers.size(); ++c)
+      {
+        const auto distance = p-vortex_centers[c];
+
+        const double r   = distance.norm();
+        const double phi = std::atan2(distance[1],distance[0]);
+        value *= vortex_strengths[c] * (r * std::exp(i*phi));
+      }
+
+    return value;
   }
 
 
@@ -151,10 +171,10 @@ namespace Step58
   Potential<dim>::value (const Point<dim>  &p,
                          const unsigned int component) const
   {
-	    (void) component;
-	    Assert(component == 0, ExcIndexRange(component, 0, 1));
+    (void) component;
+    Assert(component == 0, ExcIndexRange(component, 0, 1));
 
-	    return p*p;
+    return p*p;
   }
 
 
@@ -185,7 +205,7 @@ namespace Step58
   void NonlinearSchroedingerEquation<dim>::setup_system ()
   {
     GridGenerator::hyper_cube (triangulation, -1, 1);
-    triangulation.refine_global (5);
+    triangulation.refine_global (7);
 
     std::cout << "Number of active cells: "
               << triangulation.n_active_cells()
