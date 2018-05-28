@@ -164,8 +164,7 @@ DataOut<dim, DoFHandlerType>::build_one_patch(
               // have to be updated
               const UpdateFlags update_flags =
                 postprocessor->get_needed_update_flags();
-              if ((n_components == 1)
-                  &&
+              if ((n_components == 1) &&
                   (this->dof_data[dataset]->is_complex_valued() == false))
                 {
                   // at each point there is only one component of value,
@@ -212,14 +211,15 @@ DataOut<dim, DoFHandlerType>::build_one_patch(
               else
                 {
                   // At each point there we now have to evaluate a vector valued
-                  // function and its derivatives. It may be that the solution is
-                  // scalar and complex-valued, but we treat this as a vector
+                  // function and its derivatives. It may be that the solution
+                  // is scalar and complex-valued, but we treat this as a vector
                   // field with two components.
                   //
                   // Start by allocatating enough space for each component,
                   // potentially times two if it is a complex-valued field
-                  scratch_data.resize_system_vectors (n_components *
-                                                      (this->dof_data[dataset]->is_complex_valued() ? 2 : 1));
+                  scratch_data.resize_system_vectors(
+                    n_components *
+                    (this->dof_data[dataset]->is_complex_valued() ? 2 : 1));
 
                   if (update_flags & update_values)
                     this->dof_data[dataset]->get_function_values(
