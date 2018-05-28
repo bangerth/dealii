@@ -25,7 +25,10 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/block_sparse_matrix.h>
+#include <deal.II/lac/block_vector.h>
 #include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_refinement.h>
@@ -188,7 +191,7 @@ namespace Step58
     time(0),
     time_step(1. / 64),
     timestep_number(1),
-    kappa(1)
+    kappa(0)
   {}
 
 
@@ -319,9 +322,62 @@ namespace Step58
   }
 
 
+  namespace
+  {
+  void split_complex_linear_system (const SparseMatrix<std::complex<double>> &A,
+		  const Vector<std::complex<double>> &b,
+		  BlockSparseMatrix<double> &split_A,
+		  BlockVector<double> &split_b)
+  {
+	  Assert (A.m() == A.n(), ExcMessage ("The matrix in the linear system is not square."));
+	  Assert (A.m() == b.size(), ExcMessage ("Matrix and right hand side sizes do not match."));
+
+	  const unsigned int n = b.size();
+	  split_A.reinit ({n,n});
+	  split_A.block(0,0).reinit (A.get_sparsity_pattern());
+	  split_A.block(0,1).reinit (A.get_sparsity_pattern());
+	  split_A.block(1,0).reinit (A.get_sparsity_pattern());
+	  split_A.block(1,1).reinit (A.get_sparsity_pattern());
+	  split_b.reinit (BlockIndices{n,n});
+
+	  {
+		  SparseMatrix<std::complex<double>>::const_iterator it_A = A.begin();
+		  SparseMatrix<double>::iterator it_split_A_00 = split_A.block(0,0).begin();
+		  SparseMatrix<double>::iterator it_split_A_01 = split_A.block(0,1).begin();
+		  SparseMatrix<double>::iterator it_split_A_10 = split_A.block(1,0).begin();
+		  SparseMatrix<double>::iterator it_split_A_11 = split_A.block(1,1).begin();
+
+		  for (; it_A!=A.end(); ++it_A)
+		  {
+			  std::complex<double> A_value = it_A->value();
+			  it_split_A_00->value() = std::real(A_value);
+			  it_split_A_11->value() = std::real(A_value);
+			  it_split_A_01->value() = std::imag(A_value);
+			  it_split_A_10->value() = -std::imag(A_value);
+		  }
+	  }
+
+	  for (unsigned int i=0; i<b.size(); ++i)
+	  {
+		  split_b.block(0)[i] = std::real(b[i]);
+		  split_b.block(1)[i] = std::imag(b[i]);
+	  }
+  }
+
+  }
+
   template <int dim>
   void NonlinearSchroedingerEquation<dim>::do_full_spatial_step()
-  {}
+  {
+	  rhs_matrix.vmult (system_rhs, solution);
+
+	  BlockSparseMatrix<double> split_A;
+	  BlockVector<double> split_b;
+	  split_complex_linear_system(system_matrix, system_rhs, split_A, split_b);
+
+	  SparseDirectUMFPACK direct_solver;
+	  direct_solver.solve (split_A, split_b);
+  }
 
 
 
