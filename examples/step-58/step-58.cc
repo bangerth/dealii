@@ -62,31 +62,31 @@ namespace Step58
 
   private:
     void setup_system();
-    void assemble_matrices ();
-    void do_half_phase_step ();
-    void do_full_spatial_step ();
+    void assemble_matrices();
+    void do_half_phase_step();
+    void do_full_spatial_step();
     void output_results() const;
 
 
-    Triangulation<dim>                  triangulation;
-    FE_Q<dim>                           fe;
-    DoFHandler<dim>                     dof_handler;
+    Triangulation<dim> triangulation;
+    FE_Q<dim>          fe;
+    DoFHandler<dim>    dof_handler;
 
-    ConstraintMatrix                    constraints;
+    ConstraintMatrix constraints;
 
-    SparsityPattern                     sparsity_pattern;
-    SparseMatrix<std::complex<double> > system_matrix;
-    SparseMatrix<std::complex<double> > rhs_matrix;
+    SparsityPattern                    sparsity_pattern;
+    SparseMatrix<std::complex<double>> system_matrix;
+    SparseMatrix<std::complex<double>> rhs_matrix;
 
-    Vector<std::complex<double> >       solution;
-    Vector<std::complex<double> >       old_solution;
-    Vector<std::complex<double> >       system_rhs;
+    Vector<std::complex<double>> solution;
+    Vector<std::complex<double>> old_solution;
+    Vector<std::complex<double>> system_rhs;
 
-    double                              time;
-    double                              time_step;
-    unsigned int                        timestep_number;
+    double       time;
+    double       time_step;
+    unsigned int timestep_number;
 
-    double                              kappa;
+    double kappa;
   };
 
 
@@ -111,43 +111,42 @@ namespace Step58
   class InitialValues : public Function<dim, std::complex<double>>
   {
   public:
-    InitialValues () : Function<dim, std::complex<double>>(1) {}
+    InitialValues() : Function<dim, std::complex<double>>(1)
+    {}
 
-    virtual std::complex<double> value (const Point<dim>   &p,
-                                        const unsigned int  component = 0) const override;
+    virtual std::complex<double>
+    value(const Point<dim> &p, const unsigned int component = 0) const override;
   };
 
 
 
   template <int dim>
-  std::complex<double> InitialValues<dim>::value (const Point<dim>  &p,
-                                                  const unsigned int component) const
+  std::complex<double>
+  InitialValues<dim>::value(const Point<dim> & p,
+                            const unsigned int component) const
   {
-    static_assert (dim == 2, "This initial condition only works in 2d.");
+    static_assert(dim == 2, "This initial condition only works in 2d.");
 
-    (void) component;
+    (void)component;
     Assert(component == 0, ExcIndexRange(component, 0, 1));
 
 
-    std::complex<double> value = {1,0};
+    std::complex<double> value = {1, 0};
 
-    const std::vector<Point<dim>> vortex_centers = {{ 0,   -0.5 },
-      { 0,   +0.5 },
-      { 0.5,  0   }
-    };
-    const std::vector<double> vortex_strengths = { 1, 1, 1 };
-    AssertDimension (vortex_centers.size(),
-                     vortex_strengths.size());
+    const std::vector<Point<dim>> vortex_centers = {
+      {0, -0.5}, {0, +0.5}, {0.5, 0}};
+    const std::vector<double> vortex_strengths = {1, 1, 1};
+    AssertDimension(vortex_centers.size(), vortex_strengths.size());
 
     const std::complex<double> i(0, 1);
 
-    for (unsigned int c=0; c<vortex_centers.size(); ++c)
+    for (unsigned int c = 0; c < vortex_centers.size(); ++c)
       {
-        const auto distance = p-vortex_centers[c];
+        const auto distance = p - vortex_centers[c];
 
         const double r   = distance.norm();
-        const double phi = std::atan2(distance[1],distance[0]);
-        value *= vortex_strengths[c] * (r * std::exp(i*phi));
+        const double phi = std::atan2(distance[1], distance[0]);
+        value *= vortex_strengths[c] * (r * std::exp(i * phi));
       }
 
     return value;
@@ -159,39 +158,37 @@ namespace Step58
   class Potential : public Function<dim>
   {
   public:
-    Potential () = default;
-    virtual double value (const Point<dim>   &p,
-                          const unsigned int  component = 0) const override;
+    Potential() = default;
+    virtual double value(const Point<dim> & p,
+                         const unsigned int component = 0) const override;
   };
 
 
 
   template <int dim>
-  double
-  Potential<dim>::value (const Point<dim>  &p,
-                         const unsigned int component) const
+  double Potential<dim>::value(const Point<dim> & p,
+                               const unsigned int component) const
   {
-    (void) component;
+    (void)component;
     Assert(component == 0, ExcIndexRange(component, 0, 1));
 
-    return p*p;
+    return p * p;
   }
 
 
 
-  // @sect3{Implementation of the <code>NonlinearSchroedingerEquation</code> class}
+  // @sect3{Implementation of the <code>NonlinearSchroedingerEquation</code>
+  // class}
 
   //
   template <int dim>
-  NonlinearSchroedingerEquation<dim>::
-  NonlinearSchroedingerEquation ()
-    :
-    fe (2),
-    dof_handler (triangulation),
-    time (0),
-    time_step (1./64),
-    timestep_number (1),
-    kappa (1)
+  NonlinearSchroedingerEquation<dim>::NonlinearSchroedingerEquation() :
+    fe(2),
+    dof_handler(triangulation),
+    time(0),
+    time_step(1. / 64),
+    timestep_number(1),
+    kappa(1)
   {}
 
 
@@ -202,34 +199,32 @@ namespace Step58
   // first time step. The first few lines are pretty much standard if you've
   // read through the tutorial programs at least up to step-6:
   template <int dim>
-  void NonlinearSchroedingerEquation<dim>::setup_system ()
+  void NonlinearSchroedingerEquation<dim>::setup_system()
   {
-    GridGenerator::hyper_cube (triangulation, -1, 1);
-    triangulation.refine_global (7);
+    GridGenerator::hyper_cube(triangulation, -1, 1);
+    triangulation.refine_global(7);
 
-    std::cout << "Number of active cells: "
-              << triangulation.n_active_cells()
+    std::cout << "Number of active cells: " << triangulation.n_active_cells()
               << std::endl;
 
-    dof_handler.distribute_dofs (fe);
+    dof_handler.distribute_dofs(fe);
 
-    std::cout << "Number of degrees of freedom: "
-              << dof_handler.n_dofs()
+    std::cout << "Number of degrees of freedom: " << dof_handler.n_dofs()
               << std::endl
               << std::endl;
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
-    DoFTools::make_sparsity_pattern (dof_handler, dsp);
-    sparsity_pattern.copy_from (dsp);
+    DoFTools::make_sparsity_pattern(dof_handler, dsp);
+    sparsity_pattern.copy_from(dsp);
 
-    system_matrix.reinit (sparsity_pattern);
-    rhs_matrix.reinit (sparsity_pattern);
+    system_matrix.reinit(sparsity_pattern);
+    rhs_matrix.reinit(sparsity_pattern);
 
-    solution.reinit (dof_handler.n_dofs());
-    old_solution.reinit (dof_handler.n_dofs());
-    system_rhs.reinit (dof_handler.n_dofs());
+    solution.reinit(dof_handler.n_dofs());
+    old_solution.reinit(dof_handler.n_dofs());
+    system_rhs.reinit(dof_handler.n_dofs());
 
-    constraints.close ();
+    constraints.close();
   }
 
 
@@ -237,103 +232,95 @@ namespace Step58
   template <int dim>
   void NonlinearSchroedingerEquation<dim>::assemble_matrices()
   {
-    const QGauss<dim>  quadrature_formula(fe.degree + 1);
+    const QGauss<dim> quadrature_formula(fe.degree + 1);
 
-    FEValues<dim> fe_values (fe, quadrature_formula,
-                             update_values    |  update_gradients |
-                             update_quadrature_points  |  update_JxW_values);
+    FEValues<dim> fe_values(fe,
+                            quadrature_formula,
+                            update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
 
-    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-    const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int dofs_per_cell = fe.dofs_per_cell;
+    const unsigned int n_q_points    = quadrature_formula.size();
 
-    FullMatrix<std::complex<double> >   cell_matrix_lhs (dofs_per_cell, dofs_per_cell);
-    FullMatrix<std::complex<double> >   cell_matrix_rhs (dofs_per_cell, dofs_per_cell);
+    FullMatrix<std::complex<double>> cell_matrix_lhs(dofs_per_cell,
+                                                     dofs_per_cell);
+    FullMatrix<std::complex<double>> cell_matrix_rhs(dofs_per_cell,
+                                                     dofs_per_cell);
 
-    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-    std::vector<double> potential_values (n_q_points);
-    Potential<dim> potential;
+    std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+    std::vector<double>                  potential_values(n_q_points);
+    Potential<dim>                       potential;
 
-    typename DoFHandler<dim>::active_cell_iterator
-    cell = dof_handler.begin_active(),
-    endc = dof_handler.end();
-    for (; cell!=endc; ++cell)
+    typename DoFHandler<dim>::active_cell_iterator cell =
+                                                     dof_handler.begin_active(),
+                                                   endc = dof_handler.end();
+    for (; cell != endc; ++cell)
       {
         cell_matrix_lhs = std::complex<double>(0.);
         cell_matrix_rhs = std::complex<double>(0.);
 
-        fe_values.reinit (cell);
+        fe_values.reinit(cell);
 
-        potential.value_list (fe_values.get_quadrature_points(),
-                              potential_values);
+        potential.value_list(fe_values.get_quadrature_points(),
+                             potential_values);
 
-        for (unsigned int q_index=0; q_index<n_q_points; ++q_index)
+        for (unsigned int q_index = 0; q_index < n_q_points; ++q_index)
           {
-            for (unsigned int k=0; k<dofs_per_cell; ++k)
+            for (unsigned int k = 0; k < dofs_per_cell; ++k)
               {
-                for (unsigned int l=0; l<dofs_per_cell; ++l)
+                for (unsigned int l = 0; l < dofs_per_cell; ++l)
                   {
-                    const std::complex<double> i (0,1);
+                    const std::complex<double> i(0, 1);
 
-                    cell_matrix_lhs(k,l) += (-i *
-                                             fe_values.shape_value(k,q_index) *
-                                             fe_values.shape_value(l,q_index)
-                                             +
-                                             time_step/4 *
-                                             fe_values.shape_grad(k,q_index) *
-                                             fe_values.shape_grad(l,q_index)
-                                             +
-                                             time_step/2 *
-                                             potential_values[q_index] *
-                                             fe_values.shape_value(k,q_index) *
-                                             fe_values.shape_value(l,q_index)
-                                            )
-                                            * fe_values.JxW(q_index);
+                    cell_matrix_lhs(k, l) +=
+                      (-i * fe_values.shape_value(k, q_index) *
+                         fe_values.shape_value(l, q_index) +
+                       time_step / 4 * fe_values.shape_grad(k, q_index) *
+                         fe_values.shape_grad(l, q_index) +
+                       time_step / 2 * potential_values[q_index] *
+                         fe_values.shape_value(k, q_index) *
+                         fe_values.shape_value(l, q_index)) *
+                      fe_values.JxW(q_index);
 
-                    cell_matrix_lhs(k,l) += (-i *
-                                             fe_values.shape_value(k,q_index) *
-                                             fe_values.shape_value(l,q_index)
-                                             -
-                                             time_step/4 *
-                                             fe_values.shape_grad(k,q_index) *
-                                             fe_values.shape_grad(l,q_index)
-                                             -
-                                             time_step/2 *
-                                             potential_values[q_index] *
-                                             fe_values.shape_value(k,q_index) *
-                                             fe_values.shape_value(l,q_index)
-                                            )
-                                            * fe_values.JxW(q_index);
+                    cell_matrix_lhs(k, l) +=
+                      (-i * fe_values.shape_value(k, q_index) *
+                         fe_values.shape_value(l, q_index) -
+                       time_step / 4 * fe_values.shape_grad(k, q_index) *
+                         fe_values.shape_grad(l, q_index) -
+                       time_step / 2 * potential_values[q_index] *
+                         fe_values.shape_value(k, q_index) *
+                         fe_values.shape_value(l, q_index)) *
+                      fe_values.JxW(q_index);
                   }
               }
           }
 
-        cell->get_dof_indices (local_dof_indices);
-        constraints.distribute_local_to_global (cell_matrix_lhs,
-                                                local_dof_indices,
-                                                system_matrix);
-        constraints.distribute_local_to_global (cell_matrix_rhs,
-                                                local_dof_indices,
-                                                rhs_matrix);
+        cell->get_dof_indices(local_dof_indices);
+        constraints.distribute_local_to_global(
+          cell_matrix_lhs, local_dof_indices, system_matrix);
+        constraints.distribute_local_to_global(
+          cell_matrix_rhs, local_dof_indices, rhs_matrix);
       }
   }
 
   // $\psi^{(3)}(t_{n+1}) &= e^{-i\kappa|\psi^{(2)}(t_{n+1})|^2 \tfrac
   //  12\Delta t} \; \psi^{(2)}(t_{n+1})$.
   template <int dim>
-  void NonlinearSchroedingerEquation<dim>::do_half_phase_step ()
+  void NonlinearSchroedingerEquation<dim>::do_half_phase_step()
   {
     for (auto &value : solution)
       {
-        const std::complex<double> i (0,1);
+        const std::complex<double> i(0, 1);
         const double               magnitude = std::abs(value);
 
-        value = std::exp(-i * kappa * magnitude*magnitude * (time_step/2)) * value;
+        value = std::exp(-i * kappa * magnitude * magnitude * (time_step / 2)) *
+                value;
       }
   }
 
 
   template <int dim>
-  void NonlinearSchroedingerEquation<dim>::do_full_spatial_step ()
+  void NonlinearSchroedingerEquation<dim>::do_full_spatial_step()
   {}
 
 
@@ -344,53 +331,48 @@ namespace Step58
     class ComplexMagnitude : public DataPostprocessorScalar<dim>
     {
     public:
-      ComplexMagnitude ();
+      ComplexMagnitude();
 
-      virtual
-      void
-      evaluate_vector_field
-      (const DataPostprocessorInputs::Vector<dim> &inputs,
-       std::vector<Vector<double> >               &computed_quantities) const;
+      virtual void evaluate_vector_field(
+        const DataPostprocessorInputs::Vector<dim> &inputs,
+        std::vector<Vector<double>> &               computed_quantities) const;
     };
 
     template <int dim>
-    ComplexMagnitude<dim>::ComplexMagnitude ()
-      :
-      DataPostprocessorScalar<dim> ("Magnitude",
-                                    update_values)
+    ComplexMagnitude<dim>::ComplexMagnitude() :
+      DataPostprocessorScalar<dim>("Magnitude", update_values)
     {}
 
 
     template <int dim>
-    void
-    ComplexMagnitude<dim>::evaluate_vector_field
-    (const DataPostprocessorInputs::Vector<dim> &inputs,
-     std::vector<Vector<double> >               &computed_quantities) const
+    void ComplexMagnitude<dim>::evaluate_vector_field(
+      const DataPostprocessorInputs::Vector<dim> &inputs,
+      std::vector<Vector<double>> &               computed_quantities) const
     {
       Assert(computed_quantities.size() == inputs.solution_values.size(),
-             ExcDimensionMismatch (computed_quantities.size(), inputs.solution_values.size()));
+             ExcDimensionMismatch(computed_quantities.size(),
+                                  inputs.solution_values.size()));
 
-      for (unsigned int i=0; i<computed_quantities.size(); i++)
+      for (unsigned int i = 0; i < computed_quantities.size(); i++)
         {
           Assert(computed_quantities[i].size() == 1,
-                 ExcDimensionMismatch (computed_quantities[i].size(), 1));
+                 ExcDimensionMismatch(computed_quantities[i].size(), 1));
           Assert(inputs.solution_values[i].size() == 2,
-                 ExcDimensionMismatch (inputs.solution_values[i].size(), 2));
+                 ExcDimensionMismatch(inputs.solution_values[i].size(), 2));
 
-          computed_quantities[i](0)
-            = std::abs(std::complex<double>(inputs.solution_values[i](0),
-                                            inputs.solution_values[i](1)));
+          computed_quantities[i](0) = std::abs(std::complex<double>(
+            inputs.solution_values[i](0), inputs.solution_values[i](1)));
         }
     }
-  }
+  } // namespace DataPostprocessors
 
 
   template <int dim>
   void NonlinearSchroedingerEquation<dim>::output_results() const
   {
-    Vector<double> magnitude (dof_handler.n_dofs());
-    Vector<double> phase (dof_handler.n_dofs());
-    for (unsigned int i=0; i<dof_handler.n_dofs(); ++i)
+    Vector<double> magnitude(dof_handler.n_dofs());
+    Vector<double> phase(dof_handler.n_dofs());
+    for (unsigned int i = 0; i < dof_handler.n_dofs(); ++i)
       {
         magnitude(i) = std::abs(solution(i));
         phase(i)     = std::arg(solution(i));
@@ -400,20 +382,19 @@ namespace Step58
 
     DataOut<dim> data_out;
 
-    data_out.attach_dof_handler (dof_handler);
-    data_out.add_data_vector (solution, "Psi");
+    data_out.attach_dof_handler(dof_handler);
+    data_out.add_data_vector(solution, "Psi");
 
-//    data_out.add_data_vector (solution, complex_magnitude);
+    //    data_out.add_data_vector (solution, complex_magnitude);
 
-    data_out.add_data_vector (magnitude, "magnitude");
-    data_out.add_data_vector (phase, "phase");
-    data_out.build_patches ();
+    data_out.add_data_vector(magnitude, "magnitude");
+    data_out.add_data_vector(phase, "phase");
+    data_out.build_patches();
 
-    const std::string filename = "solution-" +
-                                 Utilities::int_to_string (timestep_number, 3) +
-                                 ".vtu";
-    std::ofstream output (filename);
-    data_out.write_vtu (output);
+    const std::string filename =
+      "solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtu";
+    std::ofstream output(filename);
+    data_out.write_vtu(output);
   }
 
 
@@ -424,26 +405,23 @@ namespace Step58
     setup_system();
     assemble_matrices();
 
-    VectorTools::interpolate (dof_handler,
-                              InitialValues<dim>(),
-                              solution);
+    VectorTools::interpolate(dof_handler, InitialValues<dim>(), solution);
 
-    for (time=0; time<=5; time+=time_step, ++timestep_number)
+    for (time = 0; time <= 5; time += time_step, ++timestep_number)
       {
-        std::cout << "Time step " << timestep_number
-                  << " at t=" << time
+        std::cout << "Time step " << timestep_number << " at t=" << time
                   << std::endl;
 
         do_half_phase_step();
         do_full_spatial_step();
         do_half_phase_step();
 
-        output_results ();
+        output_results();
 
         old_solution = solution;
       }
   }
-}
+} // namespace Step58
 
 
 
@@ -459,7 +437,8 @@ int main()
     }
   catch (std::exception &exc)
     {
-      std::cerr << std::endl << std::endl
+      std::cerr << std::endl
+                << std::endl
                 << "----------------------------------------------------"
                 << std::endl;
       std::cerr << "Exception on processing: " << std::endl
@@ -471,7 +450,8 @@ int main()
     }
   catch (...)
     {
-      std::cerr << std::endl << std::endl
+      std::cerr << std::endl
+                << std::endl
                 << "----------------------------------------------------"
                 << std::endl;
       std::cerr << "Unknown exception!" << std::endl
