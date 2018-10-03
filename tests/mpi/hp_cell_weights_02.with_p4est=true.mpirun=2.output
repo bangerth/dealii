@@ -1,0 +1,23 @@
+
+DEAL:0:2d::Number of cells before repartitioning: 8
+DEAL:0:2d::  Cumulated dofs per cell: 92
+DEAL:0:2d::Number of cells after repartitioning: 0
+DEAL:0:2d::  Cumulated dofs per cell: 0
+DEAL:0:2d::OK
+DEAL:0:3d::Number of cells before repartitioning: 32
+DEAL:0:3d::  Cumulated dofs per cell: 760
+DEAL:0:3d::Number of cells after repartitioning: 0
+DEAL:0:3d::  Cumulated dofs per cell: 0
+DEAL:0:3d::OK
+
+DEAL:1:2d::Number of cells before repartitioning: 8
+DEAL:1:2d::  Cumulated dofs per cell: 32
+DEAL:1:2d::Number of cells after repartitioning: 16
+DEAL:1:2d::  Cumulated dofs per cell: 124
+DEAL:1:2d::OK
+DEAL:1:3d::Number of cells before repartitioning: 32
+DEAL:1:3d::  Cumulated dofs per cell: 256
+DEAL:1:3d::Number of cells after repartitioning: 64
+DEAL:1:3d::  Cumulated dofs per cell: 1016
+DEAL:1:3d::OK
+
