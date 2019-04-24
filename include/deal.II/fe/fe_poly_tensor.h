@@ -209,7 +209,7 @@ protected:
    * The mapping type to be used to map shape functions from the reference
    * cell to the mesh cell.
    */
-  MappingType mapping_type;
+  std::vector<MappingType> mapping_type;
 
 
   /* NOTE: The following function has its definition inlined into the class
@@ -241,6 +241,8 @@ protected:
 
     if (update_flags & (update_values | update_gradients | update_hessians))
       data->sign_change.resize(this->dofs_per_cell);
+
+    MappingType mapping_type = this->mapping_type[0];
 
     // initialize fields only if really
     // necessary. otherwise, don't

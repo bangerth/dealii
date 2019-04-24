@@ -161,7 +161,7 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::FE_PolyTensor(
   : FiniteElement<dim, spacedim>(fe_data,
                                  restriction_is_additive_flags,
                                  nonzero_components)
-  , mapping_type(MappingType::mapping_none)
+  , mapping_type({MappingType::mapping_none})
   , poly_space(PolynomialType(degree))
 {
   cached_point(0) = -1;
@@ -364,11 +364,11 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_values(
   // between two faces.
   std::fill(fe_data.sign_change.begin(), fe_data.sign_change.end(), 1.0);
 
-  if (mapping_type == mapping_raviart_thomas)
+  if (mapping_type[0] == mapping_raviart_thomas)
     internal::FE_PolyTensor::get_face_sign_change_rt(cell,
                                                      this->dofs_per_face,
                                                      fe_data.sign_change);
-  else if (mapping_type == mapping_nedelec)
+  else if (mapping_type[0] == mapping_nedelec)
     internal::FE_PolyTensor::get_face_sign_change_nedelec(cell,
                                                           this->dofs_per_face,
                                                           fe_data.sign_change);
@@ -376,6 +376,8 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_values(
 
   for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
     {
+      MappingType mapping_type = this->mapping_type[0];
+
       const unsigned int first =
         output_data.shape_function_to_row_table[i * this->n_components() +
                                                 this->get_nonzero_components(i)
@@ -939,6 +941,8 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_face_values(
   // Compute eventual sign changes depending
   // on the neighborhood between two faces.
   std::fill(fe_data.sign_change.begin(), fe_data.sign_change.end(), 1.0);
+
+  MappingType mapping_type = this->mapping_type[0];
 
   if (mapping_type == mapping_raviart_thomas)
     internal::FE_PolyTensor::get_face_sign_change_rt(cell,
@@ -1568,6 +1572,8 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_subface_values(
   // on the neighborhood between two faces.
   std::fill(fe_data.sign_change.begin(), fe_data.sign_change.end(), 1.0);
 
+  MappingType mapping_type = this->mapping_type[0];
+
   if (mapping_type == mapping_raviart_thomas)
     internal::FE_PolyTensor::get_face_sign_change_rt(cell,
                                                      this->dofs_per_face,
@@ -1580,6 +1586,8 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_subface_values(
 
   for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
     {
+      MappingType mapping_type = this->mapping_type[0];
+
       const unsigned int first =
         output_data.shape_function_to_row_table[i * this->n_components() +
                                                 this->get_nonzero_components(i)
@@ -2139,6 +2147,8 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::requires_update_flags(
   const UpdateFlags flags) const
 {
   UpdateFlags out = update_default;
+
+  MappingType mapping_type = this->mapping_type[0];
 
   switch (mapping_type)
     {
