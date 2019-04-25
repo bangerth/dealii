@@ -376,7 +376,8 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_values(
 
   for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
     {
-      MappingType mapping_type = this->mapping_type[0];
+      MappingType mapping_type =
+        (this->mapping_type.size() > 1 ? this->mapping_type[i] : this->mapping_type[0]);
 
       const unsigned int first =
         output_data.shape_function_to_row_table[i * this->n_components() +
@@ -942,20 +943,21 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_face_values(
   // on the neighborhood between two faces.
   std::fill(fe_data.sign_change.begin(), fe_data.sign_change.end(), 1.0);
 
-  MappingType mapping_type = this->mapping_type[0];
-
-  if (mapping_type == mapping_raviart_thomas)
+  if (mapping_type[0] == mapping_raviart_thomas)
     internal::FE_PolyTensor::get_face_sign_change_rt(cell,
                                                      this->dofs_per_face,
                                                      fe_data.sign_change);
 
-  else if (mapping_type == mapping_nedelec)
+  else if (mapping_type[0] == mapping_nedelec)
     internal::FE_PolyTensor::get_face_sign_change_nedelec(cell,
                                                           this->dofs_per_face,
                                                           fe_data.sign_change);
 
   for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
     {
+      MappingType mapping_type =
+        (this->mapping_type.size() > 1 ? this->mapping_type[i] : this->mapping_type[0]);
+
       const unsigned int first =
         output_data.shape_function_to_row_table[i * this->n_components() +
                                                 this->get_nonzero_components(i)
@@ -1572,21 +1574,20 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_subface_values(
   // on the neighborhood between two faces.
   std::fill(fe_data.sign_change.begin(), fe_data.sign_change.end(), 1.0);
 
-  MappingType mapping_type = this->mapping_type[0];
-
-  if (mapping_type == mapping_raviart_thomas)
+  if (mapping_type[0] == mapping_raviart_thomas)
     internal::FE_PolyTensor::get_face_sign_change_rt(cell,
                                                      this->dofs_per_face,
                                                      fe_data.sign_change);
 
-  else if (mapping_type == mapping_nedelec)
+  else if (mapping_type[0] == mapping_nedelec)
     internal::FE_PolyTensor::get_face_sign_change_nedelec(cell,
                                                           this->dofs_per_face,
                                                           fe_data.sign_change);
 
   for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
     {
-      MappingType mapping_type = this->mapping_type[0];
+      MappingType mapping_type =
+        (this->mapping_type.size() > 1 ? this->mapping_type[i] : this->mapping_type[0]);
 
       const unsigned int first =
         output_data.shape_function_to_row_table[i * this->n_components() +
@@ -2148,91 +2149,95 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::requires_update_flags(
 {
   UpdateFlags out = update_default;
 
-  MappingType mapping_type = this->mapping_type[0];
+  for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
+  {
+    MappingType mapping_type =
+      (this->mapping_type.size() > 1 ? this->mapping_type[i] : this->mapping_type[0]);
 
-  switch (mapping_type)
-    {
-      case mapping_none:
-        {
-          if (flags & update_values)
-            out |= update_values;
+    switch (mapping_type)
+      {
+        case mapping_none:
+          {
+            if (flags & update_values)
+              out |= update_values;
 
-          if (flags & update_gradients)
-            out |= update_gradients | update_values |
-                   update_jacobian_pushed_forward_grads;
+            if (flags & update_gradients)
+              out |= update_gradients | update_values |
+                     update_jacobian_pushed_forward_grads;
 
-          if (flags & update_hessians)
-            out |= update_hessians | update_values | update_gradients |
-                   update_jacobian_pushed_forward_grads |
-                   update_jacobian_pushed_forward_2nd_derivatives;
-          break;
-        }
+            if (flags & update_hessians)
+              out |= update_hessians | update_values | update_gradients |
+                     update_jacobian_pushed_forward_grads |
+                     update_jacobian_pushed_forward_2nd_derivatives;
+            break;
+          }
+        case mapping_raviart_thomas:
+        case mapping_piola:
+          {
+            if (flags & update_values)
+              out |= update_values | update_piola;
 
-      case mapping_raviart_thomas:
-      case mapping_piola:
-        {
-          if (flags & update_values)
-            out |= update_values | update_piola;
+            if (flags & update_gradients)
+              out |= update_gradients | update_values | update_piola |
+                     update_jacobian_pushed_forward_grads |
+                     update_covariant_transformation |
+                     update_contravariant_transformation;
 
-          if (flags & update_gradients)
-            out |= update_gradients | update_values | update_piola |
-                   update_jacobian_pushed_forward_grads |
-                   update_covariant_transformation |
-                   update_contravariant_transformation;
+            if (flags & update_hessians)
+              out |= update_hessians | update_piola | update_values |
+                     update_gradients | update_jacobian_pushed_forward_grads |
+                     update_jacobian_pushed_forward_2nd_derivatives |
+                     update_covariant_transformation;
 
-          if (flags & update_hessians)
-            out |= update_hessians | update_piola | update_values |
-                   update_gradients | update_jacobian_pushed_forward_grads |
-                   update_jacobian_pushed_forward_2nd_derivatives |
-                   update_covariant_transformation;
+            break;
+          }
 
-          break;
-        }
 
-      case mapping_contravariant:
-        {
-          if (flags & update_values)
-            out |= update_values | update_piola;
+        case mapping_contravariant:
+          {
+            if (flags & update_values)
+              out |= update_values | update_piola;
 
-          if (flags & update_gradients)
-            out |= update_gradients | update_values |
-                   update_jacobian_pushed_forward_grads |
-                   update_covariant_transformation |
-                   update_contravariant_transformation;
+            if (flags & update_gradients)
+              out |= update_gradients | update_values |
+                     update_jacobian_pushed_forward_grads |
+                     update_covariant_transformation |
+                     update_contravariant_transformation;
 
-          if (flags & update_hessians)
-            out |= update_hessians | update_piola | update_values |
-                   update_gradients | update_jacobian_pushed_forward_grads |
-                   update_jacobian_pushed_forward_2nd_derivatives |
-                   update_covariant_transformation;
+            if (flags & update_hessians)
+              out |= update_hessians | update_piola | update_values |
+                     update_gradients | update_jacobian_pushed_forward_grads |
+                     update_jacobian_pushed_forward_2nd_derivatives |
+                     update_covariant_transformation;
 
-          break;
-        }
+            break;
+          }
 
-      case mapping_nedelec:
-      case mapping_covariant:
-        {
-          if (flags & update_values)
-            out |= update_values | update_covariant_transformation;
+        case mapping_nedelec:
+        case mapping_covariant:
+          {
+            if (flags & update_values)
+              out |= update_values | update_covariant_transformation;
 
-          if (flags & update_gradients)
-            out |= update_gradients | update_values |
-                   update_jacobian_pushed_forward_grads |
-                   update_covariant_transformation;
+            if (flags & update_gradients)
+              out |= update_gradients | update_values |
+                     update_jacobian_pushed_forward_grads |
+                     update_covariant_transformation;
 
-          if (flags & update_hessians)
-            out |= update_hessians | update_values | update_gradients |
-                   update_jacobian_pushed_forward_grads |
-                   update_jacobian_pushed_forward_2nd_derivatives |
-                   update_covariant_transformation;
+            if (flags & update_hessians)
+              out |= update_hessians | update_values | update_gradients |
+                     update_jacobian_pushed_forward_grads |
+                     update_jacobian_pushed_forward_2nd_derivatives |
+                     update_covariant_transformation;
 
-          break;
-        }
+            break;
+          }
 
-      default:
-        {
-          Assert(false, ExcNotImplemented());
-        }
+        default:
+          {
+            Assert(false, ExcNotImplemented());
+          }
+      }
     }
 
   return out;
