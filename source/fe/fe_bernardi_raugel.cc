@@ -55,7 +55,25 @@ FE_BernardiRaugel<dim>::FE_BernardiRaugel(const unsigned int p)
 
   // const unsigned int n_dofs = this->dofs_per_cell;
 
-  this->mapping_type = {mapping_none};
+  if(dim==2)
+    this->mapping_type = {mapping_none, mapping_none, 
+                          mapping_none, mapping_none,
+                          mapping_none, mapping_none, 
+                          mapping_none, mapping_none,
+                          mapping_contravariant, mapping_contravariant,
+                          mapping_contravariant, mapping_contravariant};
+  else if(dim==3)
+    this->mapping_type = {mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_none, mapping_none, mapping_none,
+                          mapping_contravariant, mapping_contravariant,
+                          mapping_contravariant, mapping_contravariant,
+                          mapping_contravariant, mapping_contravariant};
   // These must be done first, since
   // they change the evaluation of
   // basis functions
