@@ -207,7 +207,10 @@ public:
 protected:
   /**
    * The mapping type to be used to map shape functions from the reference
-   * cell to the mesh cell.
+   * cell to the mesh cell. If this vector is length one, the same mapping
+   * will be applied to all shape functions. If the vector size is equal to
+   * the finite element dofs per cell, then each shape function will be mapped
+   * according to the corresponding entry in the vector.
    */
   std::vector<MappingType> mapping_type;
 
