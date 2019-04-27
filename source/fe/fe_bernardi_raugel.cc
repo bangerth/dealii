@@ -60,8 +60,8 @@ FE_BernardiRaugel<dim>::FE_BernardiRaugel(const unsigned int p)
                           mapping_none, mapping_none,
                           mapping_none, mapping_none, 
                           mapping_none, mapping_none,
-                          mapping_contravariant, mapping_contravariant,
-                          mapping_contravariant, mapping_contravariant};
+                          mapping_piola, mapping_piola,
+                          mapping_piola, mapping_piola};
   else if(dim==3)
     this->mapping_type = {mapping_none, mapping_none, mapping_none,
                           mapping_none, mapping_none, mapping_none,
@@ -71,9 +71,9 @@ FE_BernardiRaugel<dim>::FE_BernardiRaugel(const unsigned int p)
                           mapping_none, mapping_none, mapping_none,
                           mapping_none, mapping_none, mapping_none,
                           mapping_none, mapping_none, mapping_none,
-                          mapping_contravariant, mapping_contravariant,
-                          mapping_contravariant, mapping_contravariant,
-                          mapping_contravariant, mapping_contravariant};
+                          mapping_piola, mapping_piola,
+                          mapping_piola, mapping_piola,
+                          mapping_piola, mapping_piola};
   // These must be done first, since
   // they change the evaluation of
   // basis functions
