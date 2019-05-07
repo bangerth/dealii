@@ -54,7 +54,8 @@ namespace internal
                               const unsigned int,
                               std::vector<double> &face_sign)
       {
-        // nothing to do in 1d
+        // Nothing to do in 1d: Every cell in 1d is in standard
+        // orientation.
         std::fill(face_sign.begin(), face_sign.end(), 1.0);
       }
 
@@ -69,8 +70,7 @@ namespace internal
         const unsigned int dim      = 2;
         const unsigned int spacedim = 2;
 
-        // Default is no sign
-        // change. I.e. multiply by one.
+        // Default is no sign change. I.e. multiply by one.
         std::fill(face_sign.begin(), face_sign.end(), 1.0);
 
         for (unsigned int f = GeometryInfo<dim>::faces_per_cell / 2;
