@@ -248,39 +248,53 @@ protected:
     // initialize fields only if really
     // necessary. otherwise, don't
     // allocate memory
+
+    bool update_transformed_shape_values = false;
+    bool update_transformed_shape_grads = false;
+    bool update_transformed_shape_hessian_tensors = false;
+
     for (unsigned int i = 0; i < this->mapping_type.size(); ++i)
       {
         MappingType mapping_type = this->mapping_type[i];
 
-        if (update_flags & update_values)
-          {
-            values.resize(this->dofs_per_cell);
-            data->shape_values.reinit(this->dofs_per_cell, n_q_points);
-            if (mapping_type != mapping_none)
-              data->transformed_shape_values.resize(n_q_points);
-          }
+        if (mapping_type != mapping_none)
+          update_transformed_shape_values = true;
 
-        if (update_flags & update_gradients)
-          {
-            grads.resize(this->dofs_per_cell);
-            data->shape_grads.reinit(this->dofs_per_cell, n_q_points);
-            data->transformed_shape_grads.resize(n_q_points);
+        if ((mapping_type == mapping_raviart_thomas) ||
+            (mapping_type == mapping_piola) ||
+            (mapping_type == mapping_nedelec) ||
+            (mapping_type == mapping_contravariant))
+          update_transformed_shape_grads = true;
 
-            if ((mapping_type == mapping_raviart_thomas) ||
-                (mapping_type == mapping_piola) ||
-                (mapping_type == mapping_nedelec) ||
-                (mapping_type == mapping_contravariant))
-              data->untransformed_shape_grads.resize(n_q_points);
-          }
+        if (mapping_type != mapping_none)
+          update_transformed_shape_hessian_tensors = true;
+      }
 
-        if (update_flags & update_hessians)
-          {
-            grad_grads.resize(this->dofs_per_cell);
-            data->shape_grad_grads.reinit(this->dofs_per_cell, n_q_points);
-            data->transformed_shape_hessians.resize(n_q_points);
-            if (mapping_type != mapping_none)
-              data->untransformed_shape_hessian_tensors.resize(n_q_points);
-          }
+    if (update_flags & update_values)
+      {
+        values.resize(this->dofs_per_cell);
+        data->shape_values.reinit(this->dofs_per_cell, n_q_points);
+        if (update_transformed_shape_values)
+          data->transformed_shape_values.resize(n_q_points);
+      }
+
+    if (update_flags & update_gradients)
+      {
+        grads.resize(this->dofs_per_cell);
+        data->shape_grads.reinit(this->dofs_per_cell, n_q_points);
+        data->transformed_shape_grads.resize(n_q_points);
+
+        if (update_transformed_shape_grads)
+          data->untransformed_shape_grads.resize(n_q_points);
+      }
+
+    if (update_flags & update_hessians)
+      {
+        grad_grads.resize(this->dofs_per_cell);
+        data->shape_grad_grads.reinit(this->dofs_per_cell, n_q_points);
+        data->transformed_shape_hessians.resize(n_q_points);
+        if (update_transformed_shape_hessian_tensors)
+          data->untransformed_shape_hessian_tensors.resize(n_q_points);
       }
 
     // Compute shape function values
