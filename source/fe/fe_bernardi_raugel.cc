@@ -196,6 +196,34 @@ FE_BernardiRaugel<dim>::initialize_support_points()
     }
 }
 
+
+
+template <int dim>
+void
+FE_BernardiRaugel<dim>::fill_fe_values(
+    const typename Triangulation<dim, dim>::cell_iterator &cell,
+    const CellSimilarity::Similarity                            cell_similarity,
+    const Quadrature<dim> &                                     quadrature,
+    const Mapping<dim, dim> &                              mapping,
+    const typename Mapping<dim, dim>::InternalDataBase &mapping_internal,
+    const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,
+                                                                       dim>
+      &                                                            mapping_data,
+    const typename FiniteElement<dim, dim>::InternalDataBase &fe_internal,
+    dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
+                                                                       dim>
+      &output_data) const
+{
+  FE_PolyTensor<PolynomialsBernardiRaugel<dim>, dim, dim>::fill_fe_values(cell,
+                                                                               cell_similarity,
+                                                                               quadrature,
+                                                                               mapping,
+                                                                               mapping_internal,
+                                                                               mapping_data,
+                                                                               fe_internal,
+                                                                               output_data);
+}
+
 template class FE_BernardiRaugel<1>;
 template class FE_BernardiRaugel<2>;
 template class FE_BernardiRaugel<3>;
