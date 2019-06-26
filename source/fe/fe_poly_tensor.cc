@@ -97,9 +97,8 @@ namespace internal
 
                       // TODO: This is probably only going to work for those
                       // elements for which all dofs are face dofs
-                      if (mapping_type.size() > 1 ?
-                            mapping_type[cell_j] == mapping_raviart_thomas :
-                            mapping_type[0] == mapping_raviart_thomas)
+                      if ((mapping_type.size() > 1 ? mapping_type[cell_j] : mapping_type[0])
+                            == mapping_raviart_thomas)
                         face_sign[f * fe.dofs_per_face + j] = -1.0;
                     }
               }
@@ -973,7 +972,7 @@ FE_PolyTensor<PolynomialType, dim, spacedim>::fill_fe_face_values(
 
   for (unsigned int i = 0; i < this->dofs_per_cell; ++i)
     {
-      MappingType mapping_type =
+      const MappingType mapping_type =
         (this->mapping_type.size() > 1 ? this->mapping_type[i] :
                                          this->mapping_type[0]);
 

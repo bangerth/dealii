@@ -249,26 +249,20 @@ protected:
     // necessary. otherwise, don't
     // allocate memory
 
-    bool update_transformed_shape_values = false;
-    bool update_transformed_shape_grads = false;
-    bool update_transformed_shape_hessian_tensors = false;
+    const bool update_transformed_shape_values = (std::find_if(this->mapping_type.begin(),
+                                                               this->mapping_type.end(),
+                                                               [](const MappingType t) { return t != mapping_none; })
+                                                        != this->mapping_type.end());
 
-    for (unsigned int i = 0; i < this->mapping_type.size(); ++i)
-      {
-        MappingType mapping_type = this->mapping_type[i];
+    const bool update_transformed_shape_grads = (std::find_if(this->mapping_type.begin(),
+                                                              this->mapping_type.end(),
+                                                              [](const MappingType t) { return (t == mapping_raviart_thomas ||
+                                                                                                t == mapping_piola ||
+                                                                                                t == mapping_nedelec ||
+                                                                                                t == mapping_contravariant); })
+                                                        != this->mapping_type.end());
 
-        if (mapping_type != mapping_none)
-          update_transformed_shape_values = true;
-
-        if ((mapping_type == mapping_raviart_thomas) ||
-            (mapping_type == mapping_piola) ||
-            (mapping_type == mapping_nedelec) ||
-            (mapping_type == mapping_contravariant))
-          update_transformed_shape_grads = true;
-
-        if (mapping_type != mapping_none)
-          update_transformed_shape_hessian_tensors = true;
-      }
+    const bool update_transformed_shape_hessian_tensors = update_transformed_shape_values;
 
     if (update_flags & update_values)
       {
