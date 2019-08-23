@@ -191,7 +191,7 @@ namespace Step58
     time(0),
     time_step(1. / 64),
     timestep_number(1),
-    kappa(0)
+    kappa(1)
   {}
 
 
