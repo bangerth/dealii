@@ -25,7 +25,7 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_refinement.h>
@@ -72,7 +72,7 @@ namespace Step58
     FE_Q<dim>          fe;
     DoFHandler<dim>    dof_handler;
 
-    ConstraintMatrix constraints;
+    AffineConstraints<std::complex<double>> constraints;
 
     SparsityPattern                    sparsity_pattern;
     SparseMatrix<std::complex<double>> system_matrix;
