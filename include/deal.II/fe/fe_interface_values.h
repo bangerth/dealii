@@ -86,12 +86,12 @@ public:
    */
   template <class CellIteratorType>
   void
-  reinit(const CellIteratorType &cell,
-         const unsigned int &    face_no,
-         const unsigned int &    sub_face_no,
-         const CellIteratorType &cell_neighbor,
-         const unsigned int &    face_no_neighbor,
-         const unsigned int &    sub_face_no_neighbor);
+  reinit(const CellIteratorType &                         cell,
+         const unsigned int &                             face_no,
+         const unsigned int &                             sub_face_no,
+         const typename identity<CellIteratorType>::type &cell_neighbor,
+         const unsigned int &                             face_no_neighbor,
+         const unsigned int &                             sub_face_no_neighbor);
 
   /**
    * Re-initialize this object to be used on an interface given by a single face
@@ -394,12 +394,12 @@ template <int dim, int spacedim>
 template <class CellIteratorType>
 void
 FEInterfaceValues<dim, spacedim>::reinit(
-  const CellIteratorType &cell,
-  const unsigned int &    face_no,
-  const unsigned int &    sub_face_no,
-  const CellIteratorType &cell_neighbor,
-  const unsigned int &    face_no_neighbor,
-  const unsigned int &    sub_face_no_neighbor)
+  const CellIteratorType &                         cell,
+  const unsigned int &                             face_no,
+  const unsigned int &                             sub_face_no,
+  const typename identity<CellIteratorType>::type &cell_neighbor,
+  const unsigned int &                             face_no_neighbor,
+  const unsigned int &                             sub_face_no_neighbor)
 {
   if (sub_face_no == numbers::invalid_unsigned_int)
     {
