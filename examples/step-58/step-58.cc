@@ -27,7 +27,7 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/block_sparse_matrix.h>
 #include <deal.II/lac/block_vector.h>
-#include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
@@ -75,7 +75,7 @@ namespace Step58
     FE_Q<dim>          fe;
     DoFHandler<dim>    dof_handler;
 
-    ConstraintMatrix constraints;
+    AffineConstraints<std::complex<double>> constraints;
 
     SparsityPattern                    sparsity_pattern;
     SparseMatrix<std::complex<double>> system_matrix;
@@ -114,7 +114,8 @@ namespace Step58
   class InitialValues : public Function<dim, std::complex<double>>
   {
   public:
-    InitialValues() : Function<dim, std::complex<double>>(1)
+    InitialValues()
+      : Function<dim, std::complex<double>>(1)
     {}
 
     virtual std::complex<double>
@@ -136,9 +137,10 @@ namespace Step58
 
     std::complex<double> value = {1, 0};
 
-    const std::vector<Point<dim>> vortex_centers = {
-      {0, -0.5}, {0, +0.5}, {0.5, 0}};
-    const std::vector<double> vortex_strengths = {1, 1, 1};
+    const std::vector<Point<dim>> vortex_centers   = {{0, -0.5},
+                                                    {0, +0.5},
+                                                    {0.5, 0}};
+    const std::vector<double>     vortex_strengths = {1, 1, 1};
     AssertDimension(vortex_centers.size(), vortex_strengths.size());
 
     const std::complex<double> i(0, 1);
@@ -185,13 +187,13 @@ namespace Step58
 
   //
   template <int dim>
-  NonlinearSchroedingerEquation<dim>::NonlinearSchroedingerEquation() :
-    fe(2),
-    dof_handler(triangulation),
-    time(0),
-    time_step(1. / 64),
-    timestep_number(1),
-    kappa(1)
+  NonlinearSchroedingerEquation<dim>::NonlinearSchroedingerEquation()
+    : fe(2)
+    , dof_handler(triangulation)
+    , time(0)
+    , time_step(1. / 64)
+    , timestep_number(1)
+    , kappa(1)
   {}
 
 
@@ -299,10 +301,12 @@ namespace Step58
           }
 
         cell->get_dof_indices(local_dof_indices);
-        constraints.distribute_local_to_global(
-          cell_matrix_lhs, local_dof_indices, system_matrix);
-        constraints.distribute_local_to_global(
-          cell_matrix_rhs, local_dof_indices, rhs_matrix);
+        constraints.distribute_local_to_global(cell_matrix_lhs,
+                                               local_dof_indices,
+                                               system_matrix);
+        constraints.distribute_local_to_global(cell_matrix_rhs,
+                                               local_dof_indices,
+                                               rhs_matrix);
       }
   }
 
@@ -324,59 +328,66 @@ namespace Step58
 
   namespace
   {
-  void split_complex_linear_system (const SparseMatrix<std::complex<double>> &A,
-		  const Vector<std::complex<double>> &b,
-		  BlockSparseMatrix<double> &split_A,
-		  BlockVector<double> &split_b)
-  {
-	  Assert (A.m() == A.n(), ExcMessage ("The matrix in the linear system is not square."));
-	  Assert (A.m() == b.size(), ExcMessage ("Matrix and right hand side sizes do not match."));
+    void
+    split_complex_linear_system(const SparseMatrix<std::complex<double>> &A,
+                                const Vector<std::complex<double>> &      b,
+                                BlockSparseMatrix<double> &split_A,
+                                BlockVector<double> &      split_b)
+    {
+      Assert(A.m() == A.n(),
+             ExcMessage("The matrix in the linear system is not square."));
+      Assert(A.m() == b.size(),
+             ExcMessage("Matrix and right hand side sizes do not match."));
 
-	  const unsigned int n = b.size();
-	  split_A.reinit ({n,n});
-	  split_A.block(0,0).reinit (A.get_sparsity_pattern());
-	  split_A.block(0,1).reinit (A.get_sparsity_pattern());
-	  split_A.block(1,0).reinit (A.get_sparsity_pattern());
-	  split_A.block(1,1).reinit (A.get_sparsity_pattern());
-	  split_b.reinit (BlockIndices{n,n});
+      const unsigned int n = b.size();
+      split_A.reinit({n, n});
+      split_A.block(0, 0).reinit(A.get_sparsity_pattern());
+      split_A.block(0, 1).reinit(A.get_sparsity_pattern());
+      split_A.block(1, 0).reinit(A.get_sparsity_pattern());
+      split_A.block(1, 1).reinit(A.get_sparsity_pattern());
+      split_b.reinit(BlockIndices{n, n});
 
-	  {
-		  SparseMatrix<std::complex<double>>::const_iterator it_A = A.begin();
-		  SparseMatrix<double>::iterator it_split_A_00 = split_A.block(0,0).begin();
-		  SparseMatrix<double>::iterator it_split_A_01 = split_A.block(0,1).begin();
-		  SparseMatrix<double>::iterator it_split_A_10 = split_A.block(1,0).begin();
-		  SparseMatrix<double>::iterator it_split_A_11 = split_A.block(1,1).begin();
+      {
+        SparseMatrix<std::complex<double>>::const_iterator it_A = A.begin();
+        SparseMatrix<double>::iterator                     it_split_A_00 =
+          split_A.block(0, 0).begin();
+        SparseMatrix<double>::iterator it_split_A_01 =
+          split_A.block(0, 1).begin();
+        SparseMatrix<double>::iterator it_split_A_10 =
+          split_A.block(1, 0).begin();
+        SparseMatrix<double>::iterator it_split_A_11 =
+          split_A.block(1, 1).begin();
 
-		  for (; it_A!=A.end(); ++it_A)
-		  {
-			  std::complex<double> A_value = it_A->value();
-			  it_split_A_00->value() = std::real(A_value);
-			  it_split_A_11->value() = std::real(A_value);
-			  it_split_A_01->value() = std::imag(A_value);
-			  it_split_A_10->value() = -std::imag(A_value);
-		  }
-	  }
+        for (; it_A != A.end(); ++it_A)
+          {
+            std::complex<double> A_value = it_A->value();
+            it_split_A_00->value()       = std::real(A_value);
+            it_split_A_11->value()       = std::real(A_value);
+            it_split_A_01->value()       = std::imag(A_value);
+            it_split_A_10->value()       = -std::imag(A_value);
+          }
+      }
 
-	  for (unsigned int i=0; i<b.size(); ++i)
-	  {
-		  split_b.block(0)[i] = std::real(b[i]);
-		  split_b.block(1)[i] = std::imag(b[i]);
-	  }
-  }
+      for (unsigned int i = 0; i < b.size(); ++i)
+        {
+          split_b.block(0)[i] = std::real(b[i]);
+          split_b.block(1)[i] = std::imag(b[i]);
+        }
+    }
 
-  }
+  } // namespace
 
   template <int dim>
   void NonlinearSchroedingerEquation<dim>::do_full_spatial_step()
   {
-	  rhs_matrix.vmult (system_rhs, solution);
+    rhs_matrix.vmult(system_rhs, solution);
 
-	  BlockSparseMatrix<double> split_A;
-	  BlockVector<double> split_b;
-	  split_complex_linear_system(system_matrix, system_rhs, split_A, split_b);
+    BlockSparseMatrix<double> split_A;
+    BlockVector<double>       split_b;
+    split_complex_linear_system(system_matrix, system_rhs, split_A, split_b);
 
-	  SparseDirectUMFPACK direct_solver;
-	  direct_solver.solve (split_A, split_b);
+    SparseDirectUMFPACK direct_solver;
+    direct_solver.solve(split_A, split_b);
   }
 
 
@@ -395,8 +406,8 @@ namespace Step58
     };
 
     template <int dim>
-    ComplexMagnitude<dim>::ComplexMagnitude() :
-      DataPostprocessorScalar<dim>("Magnitude", update_values)
+    ComplexMagnitude<dim>::ComplexMagnitude()
+      : DataPostprocessorScalar<dim>("Magnitude", update_values)
     {}
 
 
@@ -416,8 +427,9 @@ namespace Step58
           Assert(inputs.solution_values[i].size() == 2,
                  ExcDimensionMismatch(inputs.solution_values[i].size(), 2));
 
-          computed_quantities[i](0) = std::abs(std::complex<double>(
-            inputs.solution_values[i](0), inputs.solution_values[i](1)));
+          computed_quantities[i](0) =
+            std::abs(std::complex<double>(inputs.solution_values[i](0),
+                                          inputs.solution_values[i](1)));
         }
     }
   } // namespace DataPostprocessors
