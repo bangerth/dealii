@@ -300,8 +300,6 @@ namespace StepBiharmonic
       const FEValues<dim> &      fe_v = scratch_data.fe_values;
       const std::vector<double> &JxW  = fe_v.get_JxW_values();
 
-      // scalar_product(fe.shape_hessian_component(j,k,d),
-      // fe.shape_hessian_component(i,k,d));
       const double nu = 1.0;
 
       for (unsigned int point = 0; point < fe_v.n_quadrature_points; ++point)
@@ -317,7 +315,6 @@ namespace StepBiharmonic
                                    fe_v.shape_hessian(j, point)) *
                     JxW[point]; // dx
                 }
-
 
               copy_data.cell_rhs(i) += fe_v.shape_value(i, point) *
                                        right_hand_side.value(q_points[point]) *
@@ -386,15 +383,6 @@ namespace StepBiharmonic
           for (unsigned int i = 0; i < n_dofs; ++i)
             for (unsigned int j = 0; j < n_dofs; ++j)
               {
-                Assert((fe_i.average_hessian(i, qpoint) * n * n) ==
-                         contract3(n, fe_i.average_hessian(i, qpoint), n),
-                       ExcInternalError());
-
-                Assert((fe_i.jump_gradient(j, qpoint) * n) ==
-                         (n * fe_i.jump_gradient(j, qpoint)),
-                       ExcInternalError());
-
-
                 copy_data_face.cell_matrix(i, j) +=
                   (-(fe_i.average_hessian(i, qpoint) * n *
                      n)                                    // - {grad^2 v n n }
@@ -471,9 +459,9 @@ namespace StepBiharmonic
                                                              //
                    + 2.0 * gamma *
                        (fe_i.jump_gradient(i, qpoint) * n) // 2 gamma [grad v n]
-                       * (fe_i.jump_gradient(j, qpoint) * n)) // [grad u n]
-                  * JxW[qpoint];                              // dx
-
+                       * (fe_i.jump_gradient(j, qpoint) * n) // [grad u n]
+                   ) *
+                  JxW[qpoint]; // dx
 
               copy_data.cell_rhs(i) +=
                 (-(fe_i.average_hessian(i, qpoint) * n *
