@@ -1,3 +1,21 @@
+/* ---------------------------------------------------------------------
+ *
+ * Copyright (C) 2019 by the deal.II authors
+ *
+ * This file is part of the deal.II library.
+ *
+ * The deal.II library is free software; you can use it, redistribute
+ * it, and/or modify it under the terms of the GNU Lesser General
+ * Public License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * The full text of the license can be found in the file LICENSE.md at
+ * the top level directory of deal.II.
+ *
+ * ---------------------------------------------------------------------
+
+ *
+ * Author:
+ */
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
 
@@ -58,13 +76,14 @@ namespace StepBiharmonic
       static_assert(dim == 2, "Only dim==2 is implemented");
 
       virtual double value(const Point<dim> &p,
-                           const unsigned int /*component*/ = 0) const
+                           const unsigned int /*component*/ = 0) const override
       {
         return std::sin(PI * p[0]) * std::sin(PI * p[1]);
       }
 
       virtual Tensor<1, dim>
-      gradient(const Point<dim> &p, const unsigned int /*component*/ = 0) const
+      gradient(const Point<dim> &p,
+               const unsigned int /*component*/ = 0) const override
       {
         Tensor<1, dim> r;
         r[0] = PI * std::cos(PI * p[0]) * std::sin(PI * p[1]);
@@ -72,9 +91,10 @@ namespace StepBiharmonic
         return r;
       }
 
-      virtual void hessian_list(const std::vector<Point<dim>> &       points,
-                                std::vector<SymmetricTensor<2, dim>> &hessians,
-                                const unsigned int /*component*/ = 0) const
+      virtual void
+      hessian_list(const std::vector<Point<dim>> &       points,
+                   std::vector<SymmetricTensor<2, dim>> &hessians,
+                   const unsigned int /*component*/ = 0) const override
       {
         for (unsigned i = 0; i < points.size(); ++i)
           {
