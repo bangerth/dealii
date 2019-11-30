@@ -285,8 +285,8 @@ namespace StepBiharmonic
   template <int dim>
   void BiharmonicProblem<dim>::assemble_system()
   {
-    typedef decltype(dof_handler.begin_active()) Iterator;
-    const ExactSolution::RightHandSide<dim>      right_hand_side;
+    using Iterator = decltype(dof_handler.begin_active());
+    const ExactSolution::RightHandSide<dim> right_hand_side;
 
     auto cell_worker = [&](const Iterator &  cell,
                            ScratchData<dim> &scratch_data,
