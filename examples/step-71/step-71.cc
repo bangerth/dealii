@@ -119,7 +119,7 @@ namespace StepBiharmonic
       static_assert(dim == 2, "Only dim==2 is implemented");
 
       virtual double value(const Point<dim> &p,
-                           const unsigned int /*component*/ = 0) const
+                           const unsigned int /*component*/ = 0) const override
 
       {
         return 4 * std::pow(PI, 4.0) * std::sin(PI * p[0]) *
