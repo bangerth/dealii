@@ -71,7 +71,7 @@
 #include <cmath>
 
 
-namespace StepBiharmonic
+namespace Step71
 {
   using namespace dealii;
 
@@ -833,7 +833,7 @@ namespace StepBiharmonic
         std::cout << std::endl;
       }
   }
-} // namespace StepBiharmonic
+} // namespace Step71
 
 
 
@@ -851,7 +851,7 @@ int main()
   try
     {
       using namespace dealii;
-      using namespace StepBiharmonic;
+      using namespace Step71;
 
       const unsigned int fe_degree = 2;
       Assert(fe_degree >= 2,
