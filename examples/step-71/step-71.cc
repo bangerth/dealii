@@ -540,20 +540,24 @@ namespace Step71
                                ScratchData<dim> &  scratch_data,
                                CopyData &          copy_data) {
       // return;
-      FEInterfaceValues<dim> &fe_i = scratch_data.fe_interface_values;
-      fe_i.reinit(cell, face_no);
-      const auto &q_points = fe_i.get_quadrature_points();
+      FEInterfaceValues<dim> &fe_interface_values =
+        scratch_data.fe_interface_values;
+      fe_interface_values.reinit(cell, face_no);
+      const auto &q_points = fe_interface_values.get_quadrature_points();
 
       copy_data.face_data.emplace_back();
       CopyData::FaceData &copy_data_face = copy_data.face_data.back();
 
-      const unsigned int n_dofs        = fe_i.n_current_interface_dofs();
-      copy_data_face.joint_dof_indices = fe_i.get_interface_dof_indices();
+      const unsigned int n_dofs =
+        fe_interface_values.n_current_interface_dofs();
+      copy_data_face.joint_dof_indices =
+        fe_interface_values.get_interface_dof_indices();
 
       copy_data_face.cell_matrix.reinit(n_dofs, n_dofs);
 
-      const std::vector<double> &        JxW     = fe_i.get_JxW_values();
-      const std::vector<Tensor<1, dim>> &normals = fe_i.get_normal_vectors();
+      const std::vector<double> &JxW = fe_interface_values.get_JxW_values();
+      const std::vector<Tensor<1, dim>> &normals =
+        fe_interface_values.get_normal_vectors();
 
 
       const ExactSolution::Solution<dim> exact_solution;
@@ -585,27 +589,32 @@ namespace Step71
             {
               for (unsigned int j = 0; j < n_dofs; ++j)
                 copy_data_face.cell_matrix(i, j) +=
-                  (-(fe_i.average_hessian(i, qpoint) * n *
-                     n)                                    // - {grad^2 v n n }
-                     * (fe_i.jump_gradient(j, qpoint) * n) // [grad u n]
+                  (-(fe_interface_values.average_hessian(i, qpoint) * n *
+                     n) // - {grad^2 v n n }
+                     * (fe_interface_values.jump_gradient(j, qpoint) *
+                        n) // [grad u n]
                    //
-                   - (fe_i.average_hessian(j, qpoint) * n *
+                   - (fe_interface_values.average_hessian(j, qpoint) * n *
                       n) // - {grad^2 u n n }
-                       * (fe_i.jump_gradient(i, qpoint) * n) //  [grad v n]
-                                                             //
+                       * (fe_interface_values.jump_gradient(i, qpoint) *
+                          n) //  [grad v n]
+                             //
                    + 2.0 * gamma *
-                       (fe_i.jump_gradient(i, qpoint) * n) // 2 gamma [grad v n]
-                       * (fe_i.jump_gradient(j, qpoint) * n) // [grad u n]
+                       (fe_interface_values.jump_gradient(i, qpoint) *
+                        n) // 2 gamma [grad v n]
+                       * (fe_interface_values.jump_gradient(j, qpoint) *
+                          n) // [grad u n]
                    ) *
                   JxW[qpoint]; // dx
 
               copy_data.cell_rhs(i) +=
-                (-(fe_i.average_hessian(i, qpoint) * n *
-                   n) *                                    //  - {grad^2 v n n }
-                   (exact_gradients[qpoint] * n)           // (grad u_exact n)
-                 + 2.0 * gamma                             //
-                     * (fe_i.jump_gradient(i, qpoint) * n) // [grad v n]
-                     * (exact_gradients[qpoint] * n)       // (grad u_exact n)
+                (-(fe_interface_values.average_hessian(i, qpoint) * n *
+                   n) *                          //  - {grad^2 v n n }
+                   (exact_gradients[qpoint] * n) // (grad u_exact n)
+                 + 2.0 * gamma                   //
+                     * (fe_interface_values.jump_gradient(i, qpoint) *
+                        n)                           // [grad v n]
+                     * (exact_gradients[qpoint] * n) // (grad u_exact n)
                  ) *
                 JxW[qpoint]; // dx
             }
