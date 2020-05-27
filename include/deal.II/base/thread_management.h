@@ -924,284 +924,6 @@ namespace Threads
   };
 
 
-  template <typename>
-  class Task;
-
-
-  namespace internal
-  {
-#  ifdef DEAL_II_WITH_THREADS
-
-    template <typename>
-    struct TaskDescriptor;
-
-    /**
-     * The task class for TBB that is used by the TaskDescriptor class.
-     */
-    template <typename RT>
-    struct TaskEntryPoint : public tbb::task
-    {
-      TaskEntryPoint(TaskDescriptor<RT> &task_descriptor)
-        : task_descriptor(task_descriptor)
-      {}
-
-      virtual tbb::task *
-      execute() override
-      {
-        // call the function object and put the return value into the
-        // proper place
-        try
-          {
-            call(task_descriptor.function, task_descriptor.ret_val);
-          }
-        catch (const std::exception &exc)
-          {
-            internal::handle_std_exception(exc);
-          }
-        catch (...)
-          {
-            internal::handle_unknown_exception();
-          }
-        return nullptr;
-      }
-
-      /**
-       * A reference to the descriptor object of this task.
-       */
-      TaskDescriptor<RT> &task_descriptor;
-    };
-
-    /**
-     * @internal
-     *
-     * Base class describing a task. This is the basic class abstracting the
-     * Threading Building Blocks implementation of tasks.  It provides a
-     * mechanism to start a new task, as well as for joining it.
-     *
-     * Internally, the way things are implemented is that all Task<> objects
-     * keep a shared pointer to the task descriptor. When the last Task<>
-     * object goes out of scope, the destructor of the descriptor is called.
-     * Since tasks can not be abandoned, the destructor makes sure that the
-     * task is finished before it can continue to destroy the object.
-     *
-     * Note that unlike threads, tasks are not always started right away, and
-     * so the starting thread can't rely on the fact that the started task can
-     * copy things off the spawning thread's stack frame. As a consequence,
-     * the task description needs to include a way to store the function and
-     * its arguments that shall be run on the task.
-     *
-     * @author Wolfgang Bangerth, 2009
-     */
-    template <typename RT>
-    struct TaskDescriptor
-    {
-    private:
-      /**
-       * The function and its arguments that are to be run on the task.
-       */
-      std::function<RT()> function;
-
-      /**
-       * Variable holding the data the TBB needs to work with a task. Set by
-       * the queue_up_task() function. Note that the object behind this
-       * pointer will be deleted upon termination of the task, so we do not
-       * have to do so ourselves. In particular, if all objects with pointers
-       * to this task_description object go out of scope then no action is
-       * needed on our behalf.
-       */
-      tbb::task *task;
-
-      /**
-       * A place where the task will deposit its return value.
-       */
-      return_value<RT> ret_val;
-
-      /**
-       * A flag indicating whether the task has terminated.
-       */
-      bool task_is_done;
-
-    public:
-      /**
-       * Constructor. Take the function to be run on this task as argument.
-       */
-      TaskDescriptor(const std::function<RT()> &function);
-
-      /**
-       * Default constructor. Throws an exception since we want to queue a
-       * task immediately upon construction of these objects to make sure that
-       * each TaskDescriptor object corresponds to exactly one task.
-       */
-      TaskDescriptor();
-
-      /**
-       * Copy constructor. Objects of this type can not be copied, and so this
-       * constructor is `delete`d and can't be called.
-       */
-      TaskDescriptor(const TaskDescriptor &) = delete;
-
-      /**
-       * Destructor.
-       */
-      ~TaskDescriptor();
-
-      /**
-       * Copy operator. Objects of this type can not be copied, and so this
-       * operator is `delete`d and can't be called.
-       */
-      TaskDescriptor &
-      operator=(const TaskDescriptor &) = delete;
-
-      /**
-       * Queue up the task to the scheduler. We need to do this in a separate
-       * function since the new tasks needs to access objects from the current
-       * object and that can only reliably happen if the current object is
-       * completely constructed already.
-       */
-      void
-      queue_task();
-
-      /**
-       * Join a task, i.e. wait for it to finish. This function can safely be
-       * called from different threads at the same time, and can also be
-       * called more than once.
-       */
-      void
-      join();
-
-
-      template <typename>
-      friend struct TaskEntryPoint;
-      friend class dealii::Threads::Task<RT>;
-    };
-
-
-
-    template <typename RT>
-    inline TaskDescriptor<RT>::TaskDescriptor(
-      const std::function<RT()> &function)
-      : function(function)
-      , task(nullptr)
-      , task_is_done(false)
-    {}
-
-
-    template <typename RT>
-    inline void
-    TaskDescriptor<RT>::queue_task()
-    {
-      // use the pattern described in the TBB book on pages 230/231
-      // ("Start a large task in parallel with the main program")
-      task = new (tbb::task::allocate_root()) tbb::empty_task;
-      task->set_ref_count(2);
-
-      tbb::task *worker =
-        new (task->allocate_child()) TaskEntryPoint<RT>(*this);
-
-      tbb::task::spawn(*worker);
-    }
-
-
-
-    template <typename RT>
-    TaskDescriptor<RT>::TaskDescriptor()
-      : task_is_done(false)
-    {
-      Assert(false, ExcInternalError());
-    }
-
-
-
-    template <typename RT>
-    inline TaskDescriptor<RT>::~TaskDescriptor()
-    {
-      // wait for the task to complete for sure
-      join();
-
-      // now destroy the empty task structure. the book recommends to
-      // spawn it as well and let the scheduler destroy the object
-      // when done, but this has the disadvantage that the scheduler
-      // may not get to actually finishing the task before it goes out
-      // of scope (at the end of the program, or if a thread is done
-      // on which it was run) and then we would get a hard-to-decipher
-      // warning about unfinished tasks when the scheduler "goes out
-      // of the arena". rather, let's explicitly destroy the empty
-      // task object. before that, make sure that the task has been
-      // shut down, expressed by a zero reference count
-      AssertNothrow(task != nullptr, ExcInternalError());
-      AssertNothrow(task->ref_count() == 0, ExcInternalError());
-      task->destroy(*task);
-    }
-
-
-    template <typename RT>
-    inline void
-    TaskDescriptor<RT>::join()
-    {
-      // if the task is already done, just return. this makes sure we
-      // call tbb::Task::wait_for_all() exactly once, as required by
-      // TBB. we could also get the reference count of task for doing
-      // this, but that is usually slower. note that this does not
-      // work when the thread calling this function is not the same as
-      // the one that initialized the task.
-      //
-      // TODO: can we assert that no other thread tries to end the
-      // task?
-      if (task_is_done == true)
-        return;
-
-      // let TBB wait for the task to complete.
-      task_is_done = true;
-      task->wait_for_all();
-    }
-
-
-
-#  else // no threading enabled
-
-    /**
-     * A way to describe tasks. Since we are in non-MT mode at this place,
-     * things are a lot simpler than in MT mode.
-     */
-    template <typename RT>
-    struct TaskDescriptor
-    {
-      /**
-       * A place where the task will deposit its return value.
-       */
-      return_value<RT> ret_val;
-
-      /**
-       * Constructor. Call the given function and emplace the return value
-       * into the slot reserved for this purpose.
-       */
-      TaskDescriptor(const std::function<RT()> &function)
-      {
-        call(function, ret_val);
-      }
-
-      /**
-       * Wait for the task to return. Since we are in non-MT mode here, there
-       * is nothing to do.
-       */
-      static void
-      join()
-      {}
-
-      /**
-       * Run the task. Since we are here in non-MT mode, there is nothing to
-       * do that the constructor hasn't already done.
-       */
-      static void
-      queue_task()
-      {}
-    };
-
-#  endif
-
-  } // namespace internal
-
-
 
   /**
    * This class describes a task object, i.e., what one obtains by calling
@@ -1221,7 +943,10 @@ namespace Threads
    * [`std::async`](https://en.cppreference.com/w/cpp/thread/async) (which is
    * itself similar to what Threads::new_task() does). The principal conceptual
    * difference is that one can only call `std::future::get()` once, where one
-   * can call Threads::Task::return_value() as many times as desired.
+   * can call Threads::Task::return_value() as many times as desired. It is,
+   * thus, comparable to the
+   * [`std::shared_future`](https://en.cppreference.com/w/cpp/thread/shared_future)
+   * class.
    *
    * @author Wolfgang Bangerth, 2009, 2020
    * @ingroup threads
@@ -1239,14 +964,10 @@ namespace Threads
      */
     Task(const std::function<RT()> &function_object)
     {
-      // create a task descriptor and tell it to queue itself up with
-      // the scheduling system
-      task_descriptor =
-        std::make_shared<internal::TaskDescriptor<RT>>(function_object);
-      task_descriptor->queue_task();
+      future =
+        std::move(std::async(std::launch::async, function_object).share());
+      is_joinable = true;
     }
-
-
 
     /**
      * Default constructor. You can't do much with a task object constructed
@@ -1256,9 +977,9 @@ namespace Threads
      * @post Using this constructor leaves the object in an unjoinable state,
      * i.e., joinable() will return false.
      */
-    Task() = default;
-
-
+    Task()
+      : is_joinable(false)
+    {}
 
     /**
      * Join the task represented by this object, i.e. wait for it to finish.
@@ -1274,8 +995,10 @@ namespace Threads
     void
     join() const
     {
+      // Make sure we actually have a task that we can wait for.
       AssertThrow(joinable(), ExcNoTask());
-      task_descriptor->join();
+
+      future.wait();
     }
 
     /**
@@ -1293,8 +1016,7 @@ namespace Threads
     bool
     joinable() const
     {
-      return (task_descriptor !=
-              std::shared_ptr<internal::TaskDescriptor<RT>>());
+      return is_joinable;
     }
 
 
@@ -1344,22 +1066,14 @@ namespace Threads
     typename internal::return_value<RT>::reference_type
     return_value()
     {
-      join();
-      return task_descriptor->ret_val.get();
-    }
-
-
-    /**
-     * Check for equality of task objects. Since objects of this class store
-     * an implicit pointer to an object that exists exactly once for each
-     * task, the check is simply to compare these pointers.
-     */
-    bool
-    operator==(const Task &t) const
-    {
+      // Make sure we actually have a task that we can wait for.
       AssertThrow(joinable(), ExcNoTask());
-      return task_descriptor == t.task_descriptor;
+
+      // Then return the promised object. If necessary, wait for the promise to
+      // be set.
+      return future.get();
     }
+
 
     /**
      * @addtogroup Exceptions
@@ -1376,10 +1090,17 @@ namespace Threads
     //@}
   private:
     /**
-     * Shared pointer to the object representing the task. This makes sure that
-     * the object lives as long as there is at least one subscriber to it.
+     * A flag that determines whether or not the current object
+     * is actually associated with a task. It may not if, for example, it was
+     * default constructed or assigned to from a default-constructed object.
      */
-    std::shared_ptr<internal::TaskDescriptor<RT>> task_descriptor;
+    bool is_joinable;
+
+    /**
+     * The promise associated with the task that is represented by the current
+     * class.
+     */
+    std::shared_future<RT> future;
   };
 
 
