@@ -24,6 +24,8 @@
 #  include <deal.II/base/std_cxx17/tuple.h>
 #  include <deal.II/base/template_constraints.h>
 
+#  include <taskflow/taskflow.hpp>
+
 #  include <atomic>
 #  include <condition_variable>
 #  include <functional>
@@ -999,7 +1001,7 @@ namespace Threads
     {
       if (MultithreadInfo::n_threads() > 1)
         task_data = std::make_shared<TaskData>(
-          std::async(std::launch::async, function_object));
+          MultithreadInfo::get_taskflow_executor().async(function_object));
       else
         {
           // Only one thread allowed. So let the task run to completion
