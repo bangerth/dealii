@@ -329,10 +329,6 @@ FE_RaviartThomas<dim>::initialize_quad_dof_index_permutation_and_sign_change()
        local_face_dof < this->n_dofs_per_quad(face_no);
        ++local_face_dof)
     {
-      // Row and column
-      unsigned int i = local_face_dof % n;
-      unsigned int j = local_face_dof / n;
-
       // We have 8 cases that are all treated the same way. Note that the
       // corresponding case to case_no is just its binary representation.
       // The above example of (false | true | true) would be case_no=3
@@ -363,9 +359,10 @@ FE_RaviartThomas<dim>::initialize_quad_dof_index_permutation_and_sign_change()
             local_face_dof +
             this->adjust_quad_dof_index_for_face_orientation_table[face_no](
               local_face_dof, case_no);
-          // compute new row and column index
-          i = new_local_face_dof % n;
-          j = new_local_face_dof / n;
+
+          // Row and column
+          const unsigned int i = local_face_dof % n;
+          const unsigned int j = local_face_dof / n;
 
           /*
            * Now compute if a sign change is necessary. This is done for the
