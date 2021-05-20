@@ -826,7 +826,12 @@ inline AlignedVector<T>::AlignedVector()
   : elements(nullptr, [](T *) { Assert(false, ExcInternalError()); })
   , used_elements_end(nullptr)
   , allocated_elements_end(nullptr)
-{}
+{
+    std::cout << "Default constructing AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << std::endl;
+}
 
 
 
@@ -836,6 +841,11 @@ inline AlignedVector<T>::AlignedVector(const size_type size, const T &init)
   , used_elements_end(nullptr)
   , allocated_elements_end(nullptr)
 {
+    std::cout << "Size constructing AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " with size=" << size
+        << std::endl;
   if (size > 0)
     resize(size, init);
 }
@@ -845,6 +855,12 @@ inline AlignedVector<T>::AlignedVector(const size_type size, const T &init)
 template <class T>
 inline AlignedVector<T>::~AlignedVector()
 {
+    std::cout << "Destroying AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " with current size=" << size()
+        << std::endl;
+
   clear();
 }
 
@@ -856,7 +872,16 @@ inline AlignedVector<T>::AlignedVector(const AlignedVector<T> &vec)
   , used_elements_end(nullptr)
   , allocated_elements_end(nullptr)
 {
-  // copy the data from vec
+    std::cout << "Copy constructing AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " from vec="
+        << &vec
+        << " with size="
+        << vec.size()
+        << std::endl;
+
+    // copy the data from vec
   reserve(vec.size());
   used_elements_end = allocated_elements_end;
   internal::AlignedVectorCopy<T>(vec.elements.get(),
@@ -870,7 +895,15 @@ template <class T>
 inline AlignedVector<T>::AlignedVector(AlignedVector<T> &&vec) noexcept
   : AlignedVector<T>()
 {
-  // forward to the move operator
+    std::cout << "Move constructing AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " from vec="
+        << &vec
+        << " with size=" << vec.size()
+        << std::endl;
+
+    // forward to the move operator
   *this = std::move(vec);
 }
 
@@ -880,7 +913,15 @@ template <class T>
 inline AlignedVector<T> &
 AlignedVector<T>::operator=(const AlignedVector<T> &vec)
 {
-  resize(0);
+    std::cout << "Copying AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " from vec="
+        << &vec
+        << " with size=" << vec.size()
+        << std::endl;
+
+    clear();
   resize_fast(vec.used_elements_end - vec.elements.get());
   internal::AlignedVectorCopy<T>(vec.elements.get(),
                                  vec.used_elements_end,
@@ -894,7 +935,16 @@ template <class T>
 inline AlignedVector<T> &
 AlignedVector<T>::operator=(AlignedVector<T> &&vec) noexcept
 {
-  clear();
+    std::cout << "Moving AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " from vec="
+        << &vec
+        << " with size="
+        << vec.size()
+        << std::endl;
+
+    clear();
 
   // Move the actual data in the 'elements' object. One problem is that this
   // also moves the deleter object, but the deleter object is a lambda function
@@ -903,6 +953,15 @@ AlignedVector<T>::operator=(AlignedVector<T> &&vec) noexcept
   // std::unique_ptr::release() and then install our own deleter object that
   // mirrors the one used in reserve() below.
   elements = decltype(elements)(vec.elements.release(), [this](T *ptr) {
+    std::cout << "Calling deleter set in op=(&&) for AlignedVector<"
+        << typeid(T).name() << "> at this="
+        << this
+        << " with ptr="
+        << ptr
+        << " and used_elements_end=" << this->used_elements_end
+        << " (current size=" << this->size() << ")"
+        << std::endl;
+
     if (ptr != nullptr)
       {
         Assert(this->used_elements_end != nullptr, ExcInternalError());
@@ -921,6 +980,10 @@ AlignedVector<T>::operator=(AlignedVector<T> &&vec) noexcept
 
   vec.used_elements_end      = nullptr;
   vec.allocated_elements_end = nullptr;
+
+  // Finally also make sure that the other object really has no
+  // vestiges of its former self stored by also erasing its deleter.
+  //vec.elements = std::move(decltype(vec.elements) (nullptr, [](){}));
 
   return *this;
 }
@@ -1066,7 +1129,23 @@ AlignedVector<T>::reserve(const size_type new_allocated_size)
       // the objects that are currently alive (in reverse order, and then
       // release the memory. Note that we catch the 'this' pointer because the
       // number of elements currently alive might change over time.
+      std::cout << "Reserve for "
+          << typeid(T).name() << " at "
+          << this
+          << " with new size=" << new_allocated_size
+          << " and pointer " << new_data_ptr
+          << std::endl;
+
       decltype(elements) new_data(new_data_ptr, [this](T *ptr) {
+        std::cout << "Calling deleter set in reserve() for AlignedVector<"
+            << typeid(T).name() << "> at this="
+            << this
+            << " with ptr="
+            << ptr
+            << " and used_elements_end=" << this->used_elements_end
+            << " (current size=" << this->size() << ")"
+            << std::endl;
+
         if (ptr != nullptr)
           {
             Assert(this->used_elements_end != nullptr, ExcInternalError());
