@@ -371,8 +371,8 @@ namespace FETools
       // cells_to_send to their receivers
       // and receives a vector of cell_data
       void
-      send_cells(const std::vector<CellData> &cells_to_send,
-                 std::vector<CellData> &      received_cells) const;
+      exchange_data_on_cells(const std::vector<CellData> &cells_to_send,
+                             std::vector<CellData> &      received_cells) const;
 
       // add new cell_data to
       // the ordered list new_needs
@@ -1141,7 +1141,7 @@ namespace FETools
 
     template <int dim, int spacedim, class OutVector>
     void
-    ExtrapolateImplementation<dim, spacedim, OutVector>::send_cells(
+    ExtrapolateImplementation<dim, spacedim, OutVector>::exchange_data_on_cells(
       const std::vector<CellData> &cells_to_send,
       std::vector<CellData> &      received_cells) const
     {
@@ -1310,7 +1310,7 @@ namespace FETools
 
       // Send the cells needed to their owners and receive
       // a list of cells other processes need from us.
-      send_cells(cells_we_need, received_needs);
+      exchange_data_on_cells(cells_we_need, received_needs);
 
       // The list of received needs can contain some cells more than once
       // because different processes may need data from the same cell.
@@ -1367,7 +1367,7 @@ namespace FETools
           // and receive data from the correct call
           ++round;
 
-          send_cells(cells_to_send, received_cells);
+          exchange_data_on_cells(cells_to_send, received_cells);
 
           // store received cell_data
           for (typename std::vector<CellData>::const_iterator recv =
@@ -1383,7 +1383,7 @@ namespace FETools
           ++round;
 
           // finally send and receive new needs and start a new round
-          send_cells(new_needs, received_needs);
+          exchange_data_on_cells(new_needs, received_needs);
         }
       while (ready != 0);
     }
