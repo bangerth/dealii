@@ -14,12 +14,10 @@
  * ---------------------------------------------------------------------
 
  *
- * Author: Wolfgang Bangerth, Texas A&M University, 2023
+ * Author: Wolfgang Bangerth, Colorado State University, 2023
  */
 
 
-// The program starts with the usual include files, all of which you should
-// have seen before by now:
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
@@ -49,30 +47,11 @@
 #include <iostream>
 
 
-// Then the usual placing of all content of this program into a namespace and
-// the importation of the deal.II namespace into the one we will work in:
 namespace Step86
 {
   using namespace dealii;
 
 
-  // @sect3{The <code>HeatEquation</code> class}
-  //
-  // The next piece is the declaration of the main class of this program. It
-  // follows the well trodden path of previous examples. If you have looked at
-  // step-6, for example, the only thing worth noting here is that we need to
-  // build two matrices (the mass and Laplace matrix) and keep the current and
-  // previous time step's solution. We then also need to store the current
-  // time, the size of the time step, and the number of the current time
-  // step. The last of the member variables denotes the theta parameter
-  // discussed in the introduction that allows us to treat the explicit and
-  // implicit Euler methods as well as the Crank-Nicolson method and other
-  // generalizations all in one program.
-  //
-  // As far as member functions are concerned, the only possible surprise is
-  // that the <code>refine_mesh</code> function takes arguments for the
-  // minimal and maximal mesh refinement level. The purpose of this is
-  // discussed in the introduction.
   template <int dim>
   class HeatEquation
   {
@@ -111,14 +90,6 @@ namespace Step86
 
 
 
-  // @sect3{Equation data}
-
-  // In the following classes and functions, we implement the various pieces
-  // of data that define this problem (right hand side and boundary values)
-  // that are used in this program and for which we need function objects. The
-  // right hand side is chosen as discussed at the end of the
-  // introduction. For boundary values, we choose zero values, but this is
-  // easily changed below.
   template <int dim>
   class RightHandSide : public Function<dim>
   {
@@ -190,14 +161,6 @@ namespace Step86
 
 
 
-  // @sect3{The <code>HeatEquation</code> implementation}
-  //
-  // It is time now for the implementation of the main class. Let's
-  // start with the constructor which selects a linear element, a time
-  // step constant at 1/500 (remember that one period of the source
-  // on the right hand side was set to 0.2 above, so we resolve each
-  // period with 100 time steps) and chooses the Crank Nicolson method
-  // by setting $\theta=1/2$.
   template <int dim>
   HeatEquation<dim>::HeatEquation()
     : fe(1)
@@ -208,18 +171,6 @@ namespace Step86
 
 
 
-  // @sect4{<code>HeatEquation::setup_system</code>}
-  //
-  // The next function is the one that sets up the DoFHandler object,
-  // computes the constraints, and sets the linear algebra objects
-  // to their correct sizes. We also compute the mass and Laplace
-  // matrix here by simply calling two functions in the library.
-  //
-  // Note that we do not take the hanging node constraints into account when
-  // assembling the matrices (both functions have an AffineConstraints argument
-  // that defaults to an empty object). This is because we are going to
-  // condense the constraints in run() after combining the matrices for the
-  // current time-step.
   template <int dim>
   void HeatEquation<dim>::setup_system()
   {
@@ -261,10 +212,6 @@ namespace Step86
   }
 
 
-  // @sect4{<code>HeatEquation::solve_time_step</code>}
-  //
-  // The next function is the one that solves the actual linear system
-  // for a single time step. There is nothing surprising here:
   template <int dim>
   void HeatEquation<dim>::solve_time_step()
   {
@@ -284,11 +231,6 @@ namespace Step86
 
 
 
-  // @sect4{<code>HeatEquation::output_results</code>}
-  //
-  // Neither is there anything new in generating graphical output other than the
-  // fact that we tell the DataOut object what the current time and time step
-  // number is, so that this can be written into the output file:
   template <int dim>
   void HeatEquation<dim>::output_results() const
   {
@@ -308,29 +250,6 @@ namespace Step86
   }
 
 
-  // @sect4{<code>HeatEquation::refine_mesh</code>}
-  //
-  // This function is the interesting part of the program. It takes care of
-  // the adaptive mesh refinement. The three tasks
-  // this function performs is to first find out which cells to
-  // refine/coarsen, then to actually do the refinement and eventually
-  // transfer the solution vectors between the two different grids. The first
-  // task is simply achieved by using the well-established Kelly error
-  // estimator on the solution. The second task is to actually do the
-  // remeshing. That involves only basic functions as well, such as the
-  // <code>refine_and_coarsen_fixed_fraction</code> that refines those cells
-  // with the largest estimated error that together make up 60 per cent of the
-  // error, and coarsens those cells with the smallest error that make up for
-  // a combined 40 per cent of the error. Note that for problems such as the
-  // current one where the areas where something is going on are shifting
-  // around, we want to aggressively coarsen so that we can move cells
-  // around to where it is necessary.
-  //
-  // As already discussed in the introduction, too small a mesh leads to
-  // too small a time step, whereas too large a mesh leads to too little
-  // resolution. Consequently, after the first two steps, we have two
-  // loops that limit refinement and coarsening to an allowable range of
-  // cells:
   template <int dim>
   void HeatEquation<dim>::refine_mesh(const unsigned int min_grid_level,
                                       const unsigned int max_grid_level)
@@ -356,31 +275,7 @@ namespace Step86
     for (const auto &cell :
          triangulation.active_cell_iterators_on_level(min_grid_level))
       cell->clear_coarsen_flag();
-    // These two loops above are slightly different but this is easily
-    // explained. In the first loop, instead of calling
-    // <code>triangulation.end()</code> we may as well have called
-    // <code>triangulation.end_active(max_grid_level)</code>. The two
-    // calls should yield the same iterator since iterators are sorted
-    // by level and there should not be any cells on levels higher than
-    // on level <code>max_grid_level</code>. In fact, this very piece
-    // of code makes sure that this is the case.
 
-    // As part of mesh refinement we need to transfer the solution vectors
-    // from the old mesh to the new one. To this end we use the
-    // SolutionTransfer class and we have to prepare the solution vectors that
-    // should be transferred to the new grid (we will lose the old grid once
-    // we have done the refinement so the transfer has to happen concurrently
-    // with refinement). At the point where we call this function, we will
-    // have just computed the solution, so we no longer need the old_solution
-    // variable (it will be overwritten by the solution just after the mesh
-    // may have been refined, i.e., at the end of the time step; see below).
-    // In other words, we only need the one solution vector, and we copy it
-    // to a temporary object where it is safe from being reset when we further
-    // down below call <code>setup_system()</code>.
-    //
-    // Consequently, we initialize a SolutionTransfer object by attaching
-    // it to the old DoF handler. We then prepare the triangulation and the
-    // data vector for refinement (in this order).
     SolutionTransfer<dim> solution_trans(dof_handler);
 
     Vector<double> previous_solution;
@@ -388,15 +283,6 @@ namespace Step86
     triangulation.prepare_coarsening_and_refinement();
     solution_trans.prepare_for_coarsening_and_refinement(previous_solution);
 
-    // Now everything is ready, so do the refinement and recreate the DoF
-    // structure on the new grid, and finally initialize the matrix structures
-    // and the new vectors in the <code>setup_system</code> function. Next, we
-    // actually perform the interpolation of the solution from old to new
-    // grid. The final step is to apply the hanging node constraints to the
-    // solution vector, i.e., to make sure that the values of degrees of
-    // freedom located on hanging nodes are so that the solution is
-    // continuous. This is necessary since SolutionTransfer only operates on
-    // cells locally, without regard to the neighborhood.
     triangulation.execute_coarsening_and_refinement();
     setup_system();
 
@@ -406,34 +292,6 @@ namespace Step86
 
 
 
-  // @sect4{<code>HeatEquation::run</code>}
-  //
-  // This is the main driver of the program, where we loop over all
-  // time steps. At the top of the function, we set the number of
-  // initial global mesh refinements and the number of initial cycles of
-  // adaptive mesh refinement by repeating the first time step a few
-  // times. Then we create a mesh, initialize the various objects we will
-  // work with, set a label for where we should start when re-running
-  // the first time step, and interpolate the initial solution onto
-  // out mesh (we choose the zero function here, which of course we could
-  // do in a simpler way by just setting the solution vector to zero). We
-  // also output the initial time step once.
-  //
-  // @note If you're an experienced programmer, you may be surprised
-  // that we use a <code>goto</code> statement in this piece of code!
-  // <code>goto</code> statements are not particularly well liked any
-  // more since Edsgar Dijkstra, one of the greats of computer science,
-  // wrote a letter in 1968 called "Go To Statement considered harmful"
-  // (see <a href="http://en.wikipedia.org/wiki/Considered_harmful">here</a>).
-  // The author of this code subscribes to this notion whole-heartedly:
-  // <code>goto</code> is hard to understand. In fact, deal.II contains
-  // virtually no occurrences: excluding code that was essentially
-  // transcribed from books and not counting duplicated code pieces,
-  // there are 3 locations in about 600,000 lines of code at the time
-  // this note is written; we also use it in 4 tutorial programs, in
-  // exactly the same context as here. Instead of trying to justify
-  // the occurrence here, let's first look at the code and we'll come
-  // back to the issue at the end of function.
   template <int dim>
   void HeatEquation<dim>::run()
   {
@@ -466,12 +324,6 @@ namespace Step86
 
     output_results();
 
-    // Then we start the main loop until the computed time exceeds our
-    // end time of 0.5. The first task is to build the right hand
-    // side of the linear system we need to solve in each time step.
-    // Recall that it contains the term $MU^{n-1}-(1-\theta)k_n AU^{n-1}$.
-    // We put these terms into the variable system_rhs, with the
-    // help of a temporary vector:
     while (time <= 0.5)
       {
         time += time_step;
@@ -485,13 +337,6 @@ namespace Step86
         laplace_matrix.vmult(tmp, old_solution);
         system_rhs.add(-(1 - theta) * time_step, tmp);
 
-        // The second piece is to compute the contributions of the source
-        // terms. This corresponds to the term $k_n
-        // \left[ (1-\theta)F^{n-1} + \theta F^n \right]$. The following
-        // code calls VectorTools::create_right_hand_side to compute the
-        // vectors $F$, where we set the time of the right hand side
-        // (source) function before we evaluate it. The result of this
-        // all ends up in the forcing_terms variable:
         RightHandSide<dim> rhs_function;
         rhs_function.set_time(time);
         VectorTools::create_right_hand_side(dof_handler,
@@ -509,12 +354,6 @@ namespace Step86
 
         forcing_terms.add(time_step * (1 - theta), tmp);
 
-        // Next, we add the forcing terms to the ones that
-        // come from the time stepping, and also build the matrix
-        // $M+k_n\theta A$ that we have to invert in each time step.
-        // The final piece of these operations is to eliminate
-        // hanging node constrained degrees of freedom from the
-        // linear system:
         system_rhs += forcing_terms;
 
         system_matrix.copy_from(mass_matrix);
@@ -522,12 +361,6 @@ namespace Step86
 
         constraints.condense(system_matrix, system_rhs);
 
-        // There is one more operation we need to do before we
-        // can solve it: boundary values. To this end, we create
-        // a boundary value object, set the proper time to the one
-        // of the current time step, and evaluate it as we have
-        // done many times before. The result is used to also
-        // set the correct boundary values in the linear system:
         {
           BoundaryValues<dim> boundary_values_function;
           boundary_values_function.set_time(time);
@@ -544,21 +377,10 @@ namespace Step86
                                              system_rhs);
         }
 
-        // With this out of the way, all we have to do is solve the
-        // system, generate graphical data, and...
         solve_time_step();
 
         output_results();
 
-        // ...take care of mesh refinement. Here, what we want to do is
-        // (i) refine the requested number of times at the very beginning
-        // of the solution procedure, after which we jump to the top to
-        // restart the time iteration, (ii) refine every fifth time
-        // step after that.
-        //
-        // The time loop and, indeed, the main part of the program ends
-        // with starting into the next time step by setting old_solution
-        // to the solution we have just computed.
         if ((timestep_number == 1) &&
             (pre_refinement_step < n_adaptive_pre_refinement_steps))
           {
@@ -587,76 +409,9 @@ namespace Step86
       }
   }
 } // namespace Step86
-// Now that you have seen what the function does, let us come back to the issue
-// of the <code>goto</code>. In essence, what the code does is
-// something like this:
-// @code
-//   void run ()
-//   {
-//     initialize;
-//   start_time_iteration:
-//     for (timestep=1...)
-//     {
-//        solve timestep;
-//        if (timestep==1 && not happy with the result)
-//        {
-//          adjust some data structures;
-//          goto start_time_iteration; // simply try again
-//        }
-//        postprocess;
-//     }
-//   }
-// @endcode
-// Here, the condition "happy with the result" is whether we'd like to keep
-// the current mesh or would rather refine the mesh and start over on the
-// new mesh. We could of course replace the use of the <code>goto</code>
-// by the following:
-// @code
-//   void run ()
-//   {
-//     initialize;
-//     while (true)
-//     {
-//        solve timestep;
-//        if (not happy with the result)
-//           adjust some data structures;
-//        else
-//           break;
-//     }
-//     postprocess;
-//
-//     for (timestep=2...)
-//     {
-//        solve timestep;
-//        postprocess;
-//     }
-//   }
-// @endcode
-// This has the advantage of getting rid of the <code>goto</code>
-// but the disadvantage of having to duplicate the code that implements
-// the "solve timestep" and "postprocess" operations in two different
-// places. This could be countered by putting these parts of the code
-// (sizable chunks in the actual implementation above) into their
-// own functions, but a <code>while(true)</code> loop with a
-// <code>break</code> statement is not really all that much easier
-// to read or understand than a <code>goto</code>.
-//
-// In the end, one might simply agree that <i>in general</i>
-// <code>goto</code> statements are a bad idea but be pragmatic and
-// state that there may be occasions where they can help avoid code
-// duplication and awkward control flow. This may be one of these
-// places, and it matches the position Steve McConnell takes in his
-// excellent book "Code Complete" @cite CodeComplete about good
-// programming practices (see the mention of this book in the
-// introduction of step-1) that spends a surprising ten pages on the
-// question of <code>goto</code> in general.
 
 
-// @sect3{The <code>main</code> function}
-//
-// Having made it this far,  there is, again, nothing
-// much to discuss for the main function of this
-// program: it looks like all such functions since step-6.
+
 int main()
 {
   try
