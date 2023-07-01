@@ -25,9 +25,11 @@
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
-#include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/solver_cg.h>
-#include <deal.II/lac/precondition.h>
+#include <deal.II/lac/petsc_vector.h>
+#include <deal.II/lac/petsc_sparse_matrix.h>
+#include <deal.II/lac/petsc_solver.h>
+#include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/lac/petsc_precondition.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
@@ -72,14 +74,14 @@ namespace Step86
 
     AffineConstraints<double> constraints;
 
-    SparsityPattern      sparsity_pattern;
-    SparseMatrix<double> mass_matrix;
-    SparseMatrix<double> laplace_matrix;
-    SparseMatrix<double> system_matrix;
+    SparsityPattern                  sparsity_pattern;
+    PETScWrappers::MPI::SparseMatrix mass_matrix;
+    PETScWrappers::MPI::SparseMatrix laplace_matrix;
+    PETScWrappers::MPI::SparseMatrix system_matrix;
 
-    Vector<double> solution;
-    Vector<double> old_solution;
-    Vector<double> system_rhs;
+    PETScWrappers::MPI::Vector solution;
+    PETScWrappers::MPI::Vector old_solution;
+    PETScWrappers::MPI::Vector system_rhs;
 
     double       time;
     double       time_step;
@@ -195,9 +197,15 @@ namespace Step86
                                     /*keep_constrained_dofs = */ true);
     sparsity_pattern.copy_from(dsp);
 
-    mass_matrix.reinit(sparsity_pattern);
-    laplace_matrix.reinit(sparsity_pattern);
-    system_matrix.reinit(sparsity_pattern);
+    mass_matrix.reinit(dof_handler.locally_owned_dofs(),
+                       sparsity_pattern,
+                       MPI_COMM_SELF);
+    laplace_matrix.reinit(dof_handler.locally_owned_dofs(),
+                          sparsity_pattern,
+                          MPI_COMM_SELF);
+    system_matrix.reinit(dof_handler.locally_owned_dofs(),
+                         sparsity_pattern,
+                         MPI_COMM_SELF);
 
     MatrixCreator::create_mass_matrix(dof_handler,
                                       QGauss<dim>(fe.degree + 1),
@@ -206,20 +214,21 @@ namespace Step86
                                          QGauss<dim>(fe.degree + 1),
                                          laplace_matrix);
 
-    solution.reinit(dof_handler.n_dofs());
-    old_solution.reinit(dof_handler.n_dofs());
-    system_rhs.reinit(dof_handler.n_dofs());
+    solution.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
+    old_solution.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
+    system_rhs.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
   }
 
 
   template <int dim>
   void HeatEquation<dim>::solve_time_step()
   {
-    SolverControl            solver_control(1000, 1e-8 * system_rhs.l2_norm());
-    SolverCG<Vector<double>> cg(solver_control);
+    SolverControl           solver_control(1000, 1e-8 * system_rhs.l2_norm());
+    PETScWrappers::SolverCG cg(solver_control);
 
-    PreconditionSSOR<SparseMatrix<double>> preconditioner;
-    preconditioner.initialize(system_matrix, 1.0);
+    PETScWrappers::PreconditionSSOR preconditioner;
+    preconditioner.initialize(
+      system_matrix, PETScWrappers::PreconditionSSOR::AdditionalData(1.0));
 
     cg.solve(system_matrix, solution, system_rhs, preconditioner);
 
@@ -276,10 +285,12 @@ namespace Step86
          triangulation.active_cell_iterators_on_level(min_grid_level))
       cell->clear_coarsen_flag();
 
-    SolutionTransfer<dim> solution_trans(dof_handler);
+    SolutionTransfer<dim, PETScWrappers::MPI::Vector> solution_trans(
+      dof_handler);
 
-    Vector<double> previous_solution;
+    PETScWrappers::MPI::Vector previous_solution;
     previous_solution = solution;
+
     triangulation.prepare_coarsening_and_refinement();
     solution_trans.prepare_for_coarsening_and_refinement(previous_solution);
 
@@ -305,16 +316,16 @@ namespace Step86
 
     unsigned int pre_refinement_step = 0;
 
-    Vector<double> tmp;
-    Vector<double> forcing_terms;
+    PETScWrappers::MPI::Vector tmp;
+    PETScWrappers::MPI::Vector forcing_terms;
 
   start_time_iteration:
 
     time            = 0.0;
     timestep_number = 0;
 
-    tmp.reinit(solution.size());
-    forcing_terms.reinit(solution.size());
+    tmp.reinit(solution);
+    forcing_terms.reinit(solution);
 
 
     VectorTools::interpolate(dof_handler,
@@ -359,7 +370,7 @@ namespace Step86
         system_matrix.copy_from(mass_matrix);
         system_matrix.add(theta * time_step, laplace_matrix);
 
-        constraints.condense(system_matrix, system_rhs);
+        //        constraints.condense(system_matrix, system_rhs);
 
         {
           BoundaryValues<dim> boundary_values_function;
@@ -389,9 +400,6 @@ namespace Step86
                           n_adaptive_pre_refinement_steps);
             ++pre_refinement_step;
 
-            tmp.reinit(solution.size());
-            forcing_terms.reinit(solution.size());
-
             std::cout << std::endl;
 
             goto start_time_iteration;
@@ -401,8 +409,8 @@ namespace Step86
             refine_mesh(initial_global_refinement,
                         initial_global_refinement +
                           n_adaptive_pre_refinement_steps);
-            tmp.reinit(solution.size());
-            forcing_terms.reinit(solution.size());
+            tmp.reinit(solution);
+            forcing_terms.reinit(solution);
           }
 
         old_solution = solution;
@@ -412,11 +420,13 @@ namespace Step86
 
 
 
-int main()
+int main(int argc, char **argv)
 {
   try
     {
       using namespace Step86;
+
+      Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
       HeatEquation<2> heat_equation_solver;
       heat_equation_solver.run();
