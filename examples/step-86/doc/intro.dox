@@ -1,2 +1,130 @@
+<br>
+
+<i>
+This program was contributed by Wolfgang Bangerth, Colorado State University.
+
+This material is based upon work partially supported by National Science
+Foundation grants OAC-1835673, DMS-1821210, and EAR-1925595;
+and by the Computational Infrastructure in
+Geodynamics initiative (CIG), through the National Science Foundation under
+Award No. EAR-1550901 and The University of California-Davis.
+
+Stefano Zampini (King Abdullah University of Science and Technology)
+contributed the results obtained with the PETSc variant of this program
+discussed in the <a href="#Results">results section</a> below.
+</i>
+<br>
+
 <a name="Intro"></a>
 <h1>Introduction</h1>
+
+step-26 solved the simple heat equation, one of the prototypical examples
+of time dependent problems:
+@f{align*}{
+  \frac{\partial u(\mathbf x, t)}{\partial t}
+  -
+  \Delta u(\mathbf x, t)
+  &=
+  f(\mathbf x, t),
+  \qquad\qquad &&
+  \forall \mathbf x \in \Omega, t\in (0,T),
+  \\
+  u(\mathbf x, 0) &= u_0(\mathbf x) &&
+  \forall \mathbf x \in \Omega,
+  \\
+  u(\mathbf x, t) &= g(\mathbf x,t) &&
+  \forall \mathbf x \in \partial\Omega, t \in (0,T).
+@f}
+While that program showed a number of advanced techniques such as
+using adaptive mesh refinement, it did not address one big issue:
+It hand-rolls its own time stepping scheme, which in that program
+is the simple
+<a href="https://en.wikipedia.org/wiki/Crank%E2%80%93Nicolson_method">Crank-Nicolson</a>
+method with a fixed time step. This is neither accurate nor efficient: We 
+should be using a higher-order time stepping algorithm, and we should
+use one of the many ways to efficiently and automatically choose the
+length of the time step in response to the accuracy obtained.
+
+This would of course require quite a lot of development effort -- unless,
+of course, you do what we always advise: You build on what others have
+already done and have likely done in a way far superior to what one can
+do by oneself. In the current case, deal.II has interfaces to two
+such libraries: SUNDIALS, the *SUite of Nonlinear and DIfferential/ALgebraic 
+equation Solvers* (and here specifically the Runge-Kutta-type solvers
+wrapped in the SUNDIALS::ARKode class), and PETSc's TS sub-packaged
+(wrapped in the PETScWrappers::TimeStepper class). 
+
+Both of these require that we first write the partial differential equation 
+in the form of an ordinary differential equation. To this end, let us turn
+around the approach we used in step-26. There, we first discretized in time,
+obtaining a PDE to be solved at each time step that we could then discretize
+using the finite element method. This approach is called the "Rothe method".
+Instead, here, we use what's called the "method of lines" where we first
+discretize in space, obtaining a system of ordinary differential equations
+to which we can apply traditional time steppers. (There are some trade-offs
+between these two strategies, principally around using dynamically changing
+meshes; we will get back to this issue later on.) 
+
+To get this started, we take the equation above and multiply it by a test
+function $\varphi(\mathbf x)$ and integrate by parts to get a weak form: 
+We seek a function $u(\mathbf x, t)$ that for all test functions 
+$\varphi \in H^1(\Omega)$
+satisfies
+@f{align*}{
+\left(\varphi(\mathbf x),
+  \frac{\partial u(\mathbf x, t)}{\partial t} \right)_\Omega
+  +
+\left(\nabla \varphi(\mathbf x),
+  \nabla u(\mathbf x, t) \right)_\Omega
+  &=
+\left(\varphi(\mathbf x),
+  f(\mathbf x, t) \right)_\Omega,
+  \\
+\left(\varphi(\mathbf x),  u(\mathbf x, 0)\right)_\Omega &= 
+\left(\varphi(\mathbf x), u_0(\mathbf x)\right)_\Omega &&
+  \\
+  u(\mathbf x, t) &= g(\mathbf x,t) &&
+  \forall \mathbf x \in \partial\Omega, t \in (0,T).
+@f}
+
+We then discretize by restricting ourself to finite element functions
+of the form 
+@f{align*}{
+u_h(\mathbf x,t) = \sum_j U_j(t) \varphi_j(\mathbf x),
+@f}
+which leads to the problem of finding $u_h(\mathbf x, t)$ that for all 
+discrete test functions $\varphi \in V_h(\Omega)$ satisfies
+@f{align*}{
+\left(\varphi_i(\mathbf x),
+  \frac{\partial u_h(\mathbf x, t)}{\partial t} \right)_\Omega
+  +
+\left(\nabla \varphi_j(\mathbf x),
+  \nabla u_h(\mathbf x, t) \right)_\Omega
+  &=
+\left(\varphi_i(\mathbf x),
+  f(\mathbf x, t) \right)_\Omega,
+  \\
+\left(\varphi_i(\mathbf x),  u_h(\mathbf x, 0)\right)_\Omega &= 
+\left(\varphi_i(\mathbf x), u_0(\mathbf x)\right)_\Omega &&
+  \\
+  u_h(\mathbf x, t) &= g_h(\mathbf x,t) &&
+  \forall \mathbf x \in \partial\Omega, t \in (0,T),
+@f}
+where $g_h$ is an interpolant of the function $g$ on the boundary.
+
+This equation can be rewritten in matrix form in the usual way, by
+expanding $u_h$ into its coefficients times shape function form,
+pulling the sum over $j$ out of the integrals, and then considering
+that choosing test function $\varphi_i$ leads to the $i$th row
+of the linear system. This then gives us
+@f{align*}{
+M
+  \frac{\partial U(t)}{\partial t}
+  +
+AU(t)
+  &=
+  F(t)
+  \\
+  U(0) = U_0,
+@f}
+plus appropriate boundary conditions.
