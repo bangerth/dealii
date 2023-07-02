@@ -296,8 +296,8 @@ namespace Step86
   template <int dim>
   void HeatEquation<dim>::run()
   {
-    const unsigned int initial_global_refinement       = 2;
-    const unsigned int n_adaptive_pre_refinement_steps = 4;
+    const unsigned int initial_global_refinement       = 5;
+    const unsigned int n_adaptive_pre_refinement_steps = 0;
 
     GridGenerator::hyper_L(triangulation);
     triangulation.refine_global(initial_global_refinement);
@@ -325,7 +325,8 @@ namespace Step86
 
     output_results();
 
-    while (time <= 0.5)
+    const double end_time = 0.5;
+    while (time <= end_time)
       {
         time += time_step;
         ++timestep_number;
@@ -396,11 +397,11 @@ namespace Step86
           }
         else if ((timestep_number > 0) && (timestep_number % 5 == 0))
           {
-            refine_mesh(initial_global_refinement,
-                        initial_global_refinement +
-                          n_adaptive_pre_refinement_steps);
-            tmp.reinit(solution);
-            forcing_terms.reinit(solution);
+            //            refine_mesh(initial_global_refinement,
+            //                        initial_global_refinement +
+            //                          n_adaptive_pre_refinement_steps);
+            //            tmp.reinit(solution);
+            //            forcing_terms.reinit(solution);
           }
 
         old_solution = solution;
