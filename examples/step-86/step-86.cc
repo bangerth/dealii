@@ -28,7 +28,6 @@
 #include <deal.II/lac/petsc_vector.h>
 #include <deal.II/lac/petsc_sparse_matrix.h>
 #include <deal.II/lac/petsc_solver.h>
-#include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/petsc_precondition.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/grid/tria.h>
@@ -74,7 +73,6 @@ namespace Step86
 
     AffineConstraints<double> constraints;
 
-    SparsityPattern                  sparsity_pattern;
     PETScWrappers::MPI::SparseMatrix mass_matrix;
     PETScWrappers::MPI::SparseMatrix laplace_matrix;
     PETScWrappers::MPI::SparseMatrix system_matrix;
@@ -195,17 +193,11 @@ namespace Step86
                                     dsp,
                                     constraints,
                                     /*keep_constrained_dofs = */ true);
-    sparsity_pattern.copy_from(dsp);
 
-    mass_matrix.reinit(dof_handler.locally_owned_dofs(),
-                       sparsity_pattern,
-                       MPI_COMM_SELF);
-    laplace_matrix.reinit(dof_handler.locally_owned_dofs(),
-                          sparsity_pattern,
-                          MPI_COMM_SELF);
-    system_matrix.reinit(dof_handler.locally_owned_dofs(),
-                         sparsity_pattern,
-                         MPI_COMM_SELF);
+    // directly initialize from dsp, no need for the regular sparsity pattern:
+    mass_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
+    laplace_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
+    system_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
 
     MatrixCreator::create_mass_matrix(dof_handler,
                                       QGauss<dim>(fe.degree + 1),
