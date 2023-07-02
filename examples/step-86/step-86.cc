@@ -199,12 +199,10 @@ namespace Step86
     laplace_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
     system_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
 
-    MatrixCreator::create_mass_matrix(dof_handler,
-                                      QGauss<dim>(fe.degree + 1),
-                                      mass_matrix);
-    MatrixCreator::create_laplace_matrix(dof_handler,
-                                         QGauss<dim>(fe.degree + 1),
-                                         laplace_matrix);
+    MatrixCreator::create_mass_matrix(
+      dof_handler, QGauss<dim>(fe.degree + 1), mass_matrix, {}, constraints);
+    MatrixCreator::create_laplace_matrix(
+      dof_handler, QGauss<dim>(fe.degree + 1), laplace_matrix, {}, constraints);
 
     solution.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
     old_solution.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
@@ -245,9 +243,9 @@ namespace Step86
     data_out.set_flags(DataOutBase::VtkFlags(time, timestep_number));
 
     const std::string filename =
-      "solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtk";
+      "solution-" + Utilities::int_to_string(timestep_number, 3) + ".vtu";
     std::ofstream output(filename);
-    data_out.write_vtk(output);
+    data_out.write_vtu(output);
   }
 
 
@@ -362,7 +360,7 @@ namespace Step86
         system_matrix.copy_from(mass_matrix);
         system_matrix.add(theta * time_step, laplace_matrix);
 
-        //        constraints.condense(system_matrix, system_rhs);
+        constraints.condense(system_rhs);
 
         {
           BoundaryValues<dim> boundary_values_function;
