@@ -978,7 +978,7 @@ namespace GridGenerator
                                                 std::sin(gamma) * edge_length);
 
           // loop over vertices of all cells
-          for (auto &cell : tria)
+          for (auto &cell : tria.cell_iterators())
             for (const unsigned int v : GeometryInfo<2>::vertex_indices())
               {
                 // vertex has been already processed: nothing to do

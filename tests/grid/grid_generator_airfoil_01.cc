@@ -32,7 +32,7 @@ template <int dim>
 void
 print_triangulation(const Triangulation<dim, dim> &tria)
 {
-  for (const auto &cell : tria)
+  for (const auto &cell : tria.cell_iterators())
     {
       deallog << cell.material_id() << ' ';
 
