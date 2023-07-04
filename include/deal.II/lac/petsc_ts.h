@@ -203,7 +203,8 @@ namespace PETScWrappers
   /**
    * Interface to the PETSc TS solver for Ordinary Differential Equations
    * and Differential-Algebraic Equations. The TS solver is described in the
-   * [PETSc manual](https://petsc.org/release/manual/ts/).
+   * [PETSc manual](https://petsc.org/release/manual/ts/). This class is
+   * used in step-86.
    *
    * This class supports two kinds of formulations.
    * The explicit formulation:
@@ -268,7 +269,7 @@ namespace PETScWrappers
    *  - PETSc style using TimeStepper::implicit_jacobian
    *    and TimeStepper::explicit_jacobian.
    *  - deal.II style using TimeStepper::setup_jacobian and
-   * TimeStepper::solve_with_jacobian
+   *    TimeStepper::solve_with_jacobian.
    *
    * In case both approaches are coded, the deal.II style
    * will be used.
