@@ -43,6 +43,7 @@
 #include <deal.II/numerics/error_estimator.h>
 #include <deal.II/numerics/solution_transfer.h>
 #include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/lac/petsc_ts.h>
 
 #include <fstream>
 #include <iostream>
@@ -62,8 +63,25 @@ namespace Step86
 
   private:
     void setup_system();
-    void solve_time_step();
-    void output_results() const;
+
+    void implicit_function(const double                      time,
+                           const PETScWrappers::MPI::Vector &solution,
+                           const PETScWrappers::MPI::Vector &solution_dot,
+                           PETScWrappers::MPI::Vector &      dst) const;
+
+    void
+    assemble_implicit_jacobian(const double                      time,
+                               const PETScWrappers::MPI::Vector &solution_dot,
+                               const PETScWrappers::MPI::Vector &solution,
+                               const double                      shift);
+
+    void output_results(const double                      time,
+                        const PETScWrappers::MPI::Vector &solution,
+                        const unsigned int timestep_number) const;
+
+    void solve_with_jacobian(const PETScWrappers::MPI::Vector &src,
+                             PETScWrappers::MPI::Vector &      dst) const;
+
     void refine_mesh(const unsigned int min_grid_level,
                      const unsigned int max_grid_level);
 
@@ -71,21 +89,13 @@ namespace Step86
     FE_Q<dim>          fe;
     DoFHandler<dim>    dof_handler;
 
-    AffineConstraints<double> constraints;
+    mutable AffineConstraints<double> constraints;
 
-    PETScWrappers::MPI::SparseMatrix mass_matrix;
-    PETScWrappers::MPI::SparseMatrix laplace_matrix;
-    PETScWrappers::MPI::SparseMatrix system_matrix;
+    PETScWrappers::MPI::SparseMatrix jacobian_matrix;
 
     PETScWrappers::MPI::Vector solution;
-    PETScWrappers::MPI::Vector old_solution;
-    PETScWrappers::MPI::Vector system_rhs;
 
-    double       time;
-    double       time_step;
-    unsigned int timestep_number;
-
-    const double theta;
+    PETScWrappers::TimeStepperData time_stepper_data;
   };
 
 
@@ -165,8 +175,7 @@ namespace Step86
   HeatEquation<dim>::HeatEquation()
     : fe(1)
     , dof_handler(triangulation)
-    , time_step(1. / 500)
-    , theta(0.5)
+    , time_stepper_data("", "beuler", 0.0, 1.0)
   {}
 
 
@@ -186,6 +195,11 @@ namespace Step86
 
     constraints.clear();
     DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+    BoundaryValues<dim> boundary_values_function;
+    VectorTools::interpolate_boundary_values(dof_handler,
+                                             0,
+                                             boundary_values_function,
+                                             constraints);
     constraints.close();
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs());
@@ -195,34 +209,168 @@ namespace Step86
                                     /*keep_constrained_dofs = */ true);
 
     // directly initialize from dsp, no need for the regular sparsity pattern:
-    mass_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
-    laplace_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
-    system_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
-
-    MatrixCreator::create_mass_matrix(
-      dof_handler, QGauss<dim>(fe.degree + 1), mass_matrix, {}, constraints);
-    MatrixCreator::create_laplace_matrix(
-      dof_handler, QGauss<dim>(fe.degree + 1), laplace_matrix, {}, constraints);
+    // mass_matrix.reinit(dof_handler.locally_owned_dofs(), dsp, MPI_COMM_SELF);
+    // laplace_matrix.reinit(dof_handler.locally_owned_dofs(), dsp,
+    // MPI_COMM_SELF);
+    jacobian_matrix.reinit(dof_handler.locally_owned_dofs(),
+                           dsp,
+                           MPI_COMM_SELF);
 
     solution.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
-    old_solution.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
-    system_rhs.reinit(dof_handler.locally_owned_dofs(), MPI_COMM_SELF);
   }
 
 
   template <int dim>
-  void HeatEquation<dim>::solve_time_step()
+  void HeatEquation<dim>::implicit_function(
+    const double                      time,
+    const PETScWrappers::MPI::Vector &solution,
+    const PETScWrappers::MPI::Vector &solution_dot,
+    PETScWrappers::MPI::Vector &      dst) const
   {
-    SolverControl           solver_control(1000, 1e-8 * system_rhs.l2_norm());
+    RightHandSide<dim> rhs_function;
+    rhs_function.set_time(time);
+
+    BoundaryValues<dim> boundary_values_function;
+    boundary_values_function.set_time(time);
+
+    VectorTools::interpolate_boundary_values(dof_handler,
+                                             0,
+                                             boundary_values_function,
+                                             constraints);
+
+    PETScWrappers::MPI::Vector local_solution(solution);
+    PETScWrappers::MPI::Vector local_solution_dot(solution_dot);
+    constraints.distribute(local_solution);
+    constraints.set_zero(local_solution_dot);
+
+
+    QGauss<dim>   quadrature_formula(fe.degree + 1);
+    FEValues<dim> fe_values(fe,
+                            quadrature_formula,
+                            update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
+
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
+    const unsigned int n_q_points    = quadrature_formula.size();
+
+    std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+    std::vector<Tensor<1, dim>> solution_gradients(n_q_points);
+    std::vector<double>         solution_dot_values(n_q_points);
+
+    Vector<double> cell_residual(dofs_per_cell);
+
+    dst = 0;
+    for (const auto &cell : dof_handler.active_cell_iterators())
+      {
+        fe_values.reinit(cell);
+
+        fe_values.get_function_gradients(local_solution, solution_gradients);
+        fe_values.get_function_values(local_solution_dot, solution_dot_values);
+
+        cell->get_dof_indices(local_dof_indices);
+
+        cell_residual = 0;
+        for (const unsigned int q : fe_values.quadrature_point_indices())
+          for (const unsigned int i : fe_values.dof_indices())
+            {
+              cell_residual(i) +=
+                (fe_values.shape_value(i, q) * solution_dot_values[q] +
+                 fe_values.shape_grad(i, q) * solution_gradients[q] -
+                 rhs_function.value(fe_values.quadrature_point(q)) *
+                   fe_values.shape_value(i, q)) *
+                fe_values.JxW(q);
+            }
+        constraints.distribute_local_to_global(cell_residual,
+                                               local_dof_indices,
+                                               dst);
+      }
+    dst.compress(VectorOperation::add);
+    // Now we correct the entries corresponding to constrained degrees of
+    // freedom. local_solution[c] contains the constrained value of the
+    // solution at the constrained degree of freedom c.
+    for (const auto &c : constraints.get_lines())
+      if (c.inhomogeneity != 0.0)
+        dst[c.index] = local_solution[c.index] - solution[c.index];
+    dst.compress(VectorOperation::insert);
+  }
+
+
+  template <int dim>
+  void HeatEquation<dim>::assemble_implicit_jacobian(
+    const double,
+    const PETScWrappers::MPI::Vector &,
+    const PETScWrappers::MPI::Vector &,
+    const double shift)
+  {
+    VectorTools::interpolate_boundary_values(dof_handler,
+                                             0,
+                                             Functions::ZeroFunction<dim>(),
+                                             constraints);
+
+    QGauss<dim>   quadrature_formula(fe.degree + 1);
+    FEValues<dim> fe_values(fe,
+                            quadrature_formula,
+                            update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
+
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
+    const unsigned int n_q_points    = quadrature_formula.size();
+
+    std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+    std::vector<Tensor<1, dim>> solution_gradients(n_q_points);
+    std::vector<double>         solution_dot_values(n_q_points);
+
+    FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+
+    jacobian_matrix = 0;
+    for (const auto &cell : dof_handler.active_cell_iterators())
+      {
+        fe_values.reinit(cell);
+
+        cell->get_dof_indices(local_dof_indices);
+
+        cell_matrix = 0;
+        for (const unsigned int q : fe_values.quadrature_point_indices())
+          for (const unsigned int i : fe_values.dof_indices())
+            for (const unsigned int j : fe_values.dof_indices())
+              {
+                cell_matrix(i, j) +=
+                  (shift * fe_values.shape_value(i, q) *
+                     fe_values.shape_value(j, q) +
+                   fe_values.shape_grad(i, q) * fe_values.shape_grad(j, q)) *
+                  fe_values.JxW(q);
+              }
+        constraints.distribute_local_to_global(cell_matrix,
+                                               local_dof_indices,
+                                               jacobian_matrix);
+      }
+    jacobian_matrix.compress(VectorOperation::add);
+    // Now we correct the entries corresponding to constrained degrees of
+    // freedom. We want the Jacobian to be one on inhomoegeneous Dirichlet BCs
+    for (const auto &c : constraints.get_lines())
+      if (c.inhomogeneity != 0.0)
+        jacobian_matrix.set(c.index, c.index, 1.0);
+    jacobian_matrix.compress(VectorOperation::insert);
+  }
+
+
+  template <int dim>
+  void
+  HeatEquation<dim>::solve_with_jacobian(const PETScWrappers::MPI::Vector &src,
+                                         PETScWrappers::MPI::Vector &dst) const
+  {
+    SolverControl           solver_control(1000, 1e-8 * src.l2_norm());
     PETScWrappers::SolverCG cg(solver_control);
 
     PETScWrappers::PreconditionSSOR preconditioner;
     preconditioner.initialize(
-      system_matrix, PETScWrappers::PreconditionSSOR::AdditionalData(1.0));
+      jacobian_matrix, PETScWrappers::PreconditionSSOR::AdditionalData(1.0));
 
-    cg.solve(system_matrix, solution, system_rhs, preconditioner);
+    cg.solve(jacobian_matrix, dst, src, preconditioner);
 
-    constraints.distribute(solution);
+    constraints.distribute(dst);
 
     std::cout << "     " << solver_control.last_step() << " CG iterations."
               << std::endl;
@@ -231,7 +379,10 @@ namespace Step86
 
 
   template <int dim>
-  void HeatEquation<dim>::output_results() const
+  void
+  HeatEquation<dim>::output_results(const double                      time,
+                                    const PETScWrappers::MPI::Vector &solution,
+                                    const unsigned int timestep_number) const
   {
     DataOut<dim> data_out;
 
@@ -296,116 +447,45 @@ namespace Step86
   template <int dim>
   void HeatEquation<dim>::run()
   {
-    const unsigned int initial_global_refinement       = 5;
-    const unsigned int n_adaptive_pre_refinement_steps = 0;
+    const unsigned int initial_global_refinement = 5;
+    // const unsigned int n_adaptive_pre_refinement_steps = 0;
 
     GridGenerator::hyper_L(triangulation);
     triangulation.refine_global(initial_global_refinement);
 
     setup_system();
 
-    unsigned int pre_refinement_step = 0;
-
-    PETScWrappers::MPI::Vector tmp;
-    PETScWrappers::MPI::Vector forcing_terms;
-
-  start_time_iteration:
-
-    time            = 0.0;
-    timestep_number = 0;
-
-    tmp.reinit(solution);
-    forcing_terms.reinit(solution);
-
-
     VectorTools::interpolate(dof_handler,
                              Functions::ZeroFunction<dim>(),
-                             old_solution);
-    solution = old_solution;
+                             solution);
 
-    output_results();
+    PETScWrappers::TimeStepper<PETScWrappers::MPI::Vector,
+                               PETScWrappers::MPI::SparseMatrix>
+      petsc_ts(time_stepper_data);
 
-    const double end_time = 0.5;
-    while (time <= end_time)
-      {
-        time += time_step;
-        ++timestep_number;
+    petsc_ts.set_matrix(jacobian_matrix);
+    petsc_ts.implicit_function =
+      [&](const auto t, const auto &y, const auto &y_dot, auto &res) {
+        this->implicit_function(t, y, y_dot, res);
+      };
 
-        std::cout << "Time step " << timestep_number << " at t=" << time
-                  << std::endl;
+    petsc_ts.setup_jacobian =
+      [&](const auto t, const auto &y, const auto &y_dot, const auto alpha) {
+        this->assemble_implicit_jacobian(t, y, y_dot, alpha);
+      };
 
-        mass_matrix.vmult(system_rhs, old_solution);
+    petsc_ts.solve_with_jacobian = [&](const auto &src, auto &dst) {
+      this->solve_with_jacobian(src, dst);
+    };
 
-        laplace_matrix.vmult(tmp, old_solution);
-        system_rhs.add(-(1 - theta) * time_step, tmp);
+    petsc_ts.monitor =
+      [&](const auto t, const auto &solution, const auto step_number) {
+        std::cout << "Time step " << step_number << " at t=" << t << std::endl;
+        this->output_results(t, solution, step_number);
+      };
 
-        RightHandSide<dim> rhs_function;
-        rhs_function.set_time(time);
-        VectorTools::create_right_hand_side(dof_handler,
-                                            QGauss<dim>(fe.degree + 1),
-                                            rhs_function,
-                                            tmp);
-        forcing_terms = tmp;
-        forcing_terms *= time_step * theta;
 
-        rhs_function.set_time(time - time_step);
-        VectorTools::create_right_hand_side(dof_handler,
-                                            QGauss<dim>(fe.degree + 1),
-                                            rhs_function,
-                                            tmp);
-
-        forcing_terms.add(time_step * (1 - theta), tmp);
-
-        system_rhs += forcing_terms;
-
-        system_matrix.copy_from(mass_matrix);
-        system_matrix.add(theta * time_step, laplace_matrix);
-
-        constraints.condense(system_rhs);
-
-        {
-          BoundaryValues<dim> boundary_values_function;
-          boundary_values_function.set_time(time);
-
-          std::map<types::global_dof_index, double> boundary_values;
-          VectorTools::interpolate_boundary_values(dof_handler,
-                                                   0,
-                                                   boundary_values_function,
-                                                   boundary_values);
-
-          MatrixTools::apply_boundary_values(boundary_values,
-                                             system_matrix,
-                                             solution,
-                                             system_rhs);
-        }
-
-        solve_time_step();
-
-        output_results();
-
-        if ((timestep_number == 1) &&
-            (pre_refinement_step < n_adaptive_pre_refinement_steps))
-          {
-            refine_mesh(initial_global_refinement,
-                        initial_global_refinement +
-                          n_adaptive_pre_refinement_steps);
-            ++pre_refinement_step;
-
-            std::cout << std::endl;
-
-            goto start_time_iteration;
-          }
-        else if ((timestep_number > 0) && (timestep_number % 5 == 0))
-          {
-            //            refine_mesh(initial_global_refinement,
-            //                        initial_global_refinement +
-            //                          n_adaptive_pre_refinement_steps);
-            //            tmp.reinit(solution);
-            //            forcing_terms.reinit(solution);
-          }
-
-        old_solution = solution;
-      }
+    petsc_ts.solve(solution);
   }
 } // namespace Step86
 
