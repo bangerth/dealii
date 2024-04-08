@@ -1145,6 +1145,14 @@ namespace TriangulationDescription
             rank,
             settings));
 
+      // .......................................
+      // At this point, every process has created a description of how its
+      // own locally owned cells will feed into the different partitions
+      // of the triangulation we are trying to describe here. But individual
+      // processes may only see a part of each of the future triangulation's
+      // partition. We thus have to merge the pieces that each process
+      // contributes to each future partition.
+
       // Collect description from all processes that used to own locally-owned
       // active cells of this process in a single description
       DescriptionTemp<dim, spacedim> description_merged;
