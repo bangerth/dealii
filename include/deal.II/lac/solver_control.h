@@ -432,7 +432,7 @@ public:
                             const double       tolerance   = 1.e-10,
                             const double       reduce      = 1.e-2,
                             const bool         log_history = false,
-                            const bool         log_result  = true);
+                            const bool         log_result  = false);
 
   /**
    * Initialize with a SolverControl object. The result will emulate
