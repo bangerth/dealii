@@ -429,7 +429,12 @@ namespace internal
 
       // Finally join things with the constraints we know about and own
       // ourselves, collate everything we received into one array, sort,
-      // and make it unique:
+      // and make it unique. Note that sort_and_make_unique() will ensure
+      // that if a DoF exists multiple times in the array, we
+      // will keep the *first* constraint for this DoF, which is the one
+      // we knew locally. Things we receive from elsewhere are then discarded,
+      // and that will help us later on to double-check whether every
+      // process actually knows the *same* constraints.
       for (const ConstraintLine &line : constraints_in.get_lines())
         if (locally_owned_dofs.is_element(line.index))
           locally_relevant_constraints.push_back(line);
@@ -440,6 +445,16 @@ namespace internal
 
       sort_and_make_unique(locally_relevant_constraints);
     }
+
+    // At this point, every process knows about constraints that pertain
+    // to the DoFs it owns. It perhaps doesn't yet know the fully resolved
+    // form of these constraints, but at least it knows about each DoF
+    // among its own that is constrained.
+    //
+    // What is left at this point is to resolve right hand sides. For
+    // this, we have to first figure out which DoFs appear on the right
+    // hand sides of the constraints we have, and import information about
+    // constraints that might affect these.
 
     // step 3: communicate constraints so that each process knows how the
     // locally relevant dofs are constrained
