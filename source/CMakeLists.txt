@@ -123,9 +123,15 @@ foreach(build ${DEAL_II_BUILD_TYPES})
 
   #
   # Add compile flags, definitions and (public) feature (recorded in
-  # DEAL_II_TARGETS(|_DEBUG|_RELEASE)).
+  # DEAL_II_TARGETS(|_DEBUG|_RELEASE), and in DEAL_II_COMPILER_SUPPORTS_IPO).
   #
   populate_target_properties(${DEAL_II_TARGET_NAME}_${build_lowercase} ${build})
+
+  if(("${build}" MATCHES "RELEASE") AND ("${DEAL_II_COMPILER_SUPPORTS_IPO}" STREQUAL "YES"))
+    set_property(TARGET ${DEAL_II_TARGET_NAME}_${build_lowercase}
+                 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    message(STATUS "Setting LTO properties on ${DEAL_II_TARGET_NAME}_${build_lowercase}")
+  endif()
 
   #
   # Record the expected C++ standard as a compile feature. This target
