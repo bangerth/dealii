@@ -33,7 +33,7 @@ macro(deal_ii_add_definitions _name)
    if (("${_build}" STREQUAL "RELEASE") AND ("${DEAL_II_COMPILER_SUPPORTS_IPO}" STREQUAL "YES"))
      set_property(TARGET ${_name}_${_build_lowercase}
                   PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-     MESSAGE(STATUS "Setting LTO properties on ${_name}_${_build_lowercase} for build type ${_build}")
+     message(STATUS "Setting LTO properties on ${_name}_${_build_lowercase} for build type ${_build}")
    endif()
   endforeach()
 
