@@ -39,6 +39,14 @@
 #  include <deal.II/sundials/sunlinsol_wrapper.h>
 #  include <deal.II/sundials/utilities.h>
 
+// TODO: This is likely a compiler bug: Instantiating the
+// ParameterHandler-related functions of the ARKode class requires us
+// to #include the following header:
+#  define BOOST_BIND_GLOBAL_PLACEHOLDERS
+#  include <boost/property_tree/ptree.hpp>
+#  undef BOOST_BIND_GLOBAL_PLACEHOLDERS
+
+
 #  include <arkode/arkode_arkstep.h>
 #  include <sunlinsol/sunlinsol_spgmr.h>
 #  include <sunnonlinsol/sunnonlinsol_fixedpoint.h>
