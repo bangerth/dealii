@@ -193,9 +193,8 @@ namespace NonMatching
      * @note It is important that each 1d-quadrature rule in the
      * hp::QCollection does not contain the points 0 and 1.
      */
-    QuadratureGenerator(
-      const hp::QCollection<1> &quadratures1D,
-      const AdditionalData     &additional_data = AdditionalData());
+    QuadratureGenerator(const hp::QCollection<1> &quadratures1D,
+                        const AdditionalData     &additional_data = {});
 
     /**
      * Clears the inside, outside and surface quadratures.
@@ -311,9 +310,8 @@ namespace NonMatching
      * @note It is important that each 1d-quadrature rule in the
      * hp::QCollection does not contain the points 0 and 1.
      */
-    FaceQuadratureGenerator(
-      const hp::QCollection<1> &quadratures1D,
-      const AdditionalData     &additional_data = AdditionalData());
+    FaceQuadratureGenerator(const hp::QCollection<1> &quadratures1D,
+                            const AdditionalData     &additional_data = {});
 
     /**
      * Clears the inside, outside and surface quadratures.
@@ -424,9 +422,8 @@ namespace NonMatching
      * Constructor. The incoming hp::QCollection is not used. But this class
      * must have the same signature as the non-specialized class.
      */
-    FaceQuadratureGenerator(
-      const hp::QCollection<1> &quadratures1D,
-      const AdditionalData     &additional_data = AdditionalData());
+    FaceQuadratureGenerator(const hp::QCollection<1> &quadratures1D,
+                            const AdditionalData     &additional_data = {});
 
     /**
      * Does nothing. Exists for compatibility reasons.
@@ -541,11 +538,10 @@ namespace NonMatching
      * QuadratureGenerator class.
      */
     template <typename Number>
-    DiscreteQuadratureGenerator(
-      const hp::QCollection<1> &quadratures1D,
-      const DoFHandler<dim>    &dof_handler,
-      const ReadVector<Number> &level_set,
-      const AdditionalData     &additional_data = AdditionalData());
+    DiscreteQuadratureGenerator(const hp::QCollection<1> &quadratures1D,
+                                const DoFHandler<dim>    &dof_handler,
+                                const ReadVector<Number> &level_set,
+                                const AdditionalData     &additional_data = {});
 
     /**
      * Construct immersed quadratures rules based on the discrete level
@@ -603,11 +599,10 @@ namespace NonMatching
      * QuadratureGenerator class.
      */
     template <typename Number>
-    DiscreteFaceQuadratureGenerator(
-      const hp::QCollection<1> &quadratures1D,
-      const DoFHandler<dim>    &dof_handler,
-      const ReadVector<Number> &level_set,
-      const AdditionalData     &additional_data = AdditionalData());
+    DiscreteFaceQuadratureGenerator(const hp::QCollection<1> &quadratures1D,
+                                    const DoFHandler<dim>    &dof_handler,
+                                    const ReadVector<Number> &level_set,
+                                    const AdditionalData &additional_data = {});
 
     /**
      * Construct immersed quadratures rules based on the discrete level
@@ -696,7 +691,7 @@ namespace NonMatching
         /**
          * Constructor.
          */
-        RootFinder(const AdditionalData &data = AdditionalData());
+        RootFinder(const AdditionalData &data = {});
 
         /**
          * For each of the incoming @p functions, attempt to find the roots over

@@ -517,7 +517,7 @@ namespace MatrixFreeTools
      */
     void
     reinit(const MatrixFree<dim, Number, VectorizedArrayType> &matrix_free,
-           const AdditionalData &additional_data = AdditionalData())
+           const AdditionalData &additional_data = {})
     {
       this->matrix_free = &matrix_free;
 

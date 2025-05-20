@@ -436,7 +436,7 @@ namespace Portable
            const AffineConstraints<Number> &constraints,
            const Quadrature<1>             &quad,
            const IteratorFiltersType       &iterator_filter,
-           const AdditionalData            &additional_data = AdditionalData());
+           const AdditionalData            &additional_data = {});
 
     /**
      * Same as above using Iterators::LocallyOwnedCell() as predicate.
@@ -446,7 +446,7 @@ namespace Portable
            const DoFHandler<dim>           &dof_handler,
            const AffineConstraints<Number> &constraints,
            const Quadrature<1>             &quad,
-           const AdditionalData            &additional_data = AdditionalData());
+           const AdditionalData            &additional_data = {});
 
     /**
      * Initializes the data structures. Same as above but using a Q1 mapping.
@@ -455,7 +455,7 @@ namespace Portable
     reinit(const DoFHandler<dim>           &dof_handler,
            const AffineConstraints<Number> &constraints,
            const Quadrature<1>             &quad,
-           const AdditionalData            &additional_data = AdditionalData());
+           const AdditionalData            &additional_data = {});
 
     /**
      * Return the Data structure associated with @p color.

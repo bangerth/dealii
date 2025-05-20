@@ -121,14 +121,13 @@ public:
    */
   SolverBicgstab(SolverControl            &cn,
                  VectorMemory<VectorType> &mem,
-                 const AdditionalData     &data = AdditionalData());
+                 const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverBicgstab(SolverControl        &cn,
-                 const AdditionalData &data = AdditionalData());
+  SolverBicgstab(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * Virtual destructor.

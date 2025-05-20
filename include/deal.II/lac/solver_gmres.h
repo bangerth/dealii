@@ -503,13 +503,13 @@ public:
    */
   SolverGMRES(SolverControl            &cn,
               VectorMemory<VectorType> &mem,
-              const AdditionalData     &data = AdditionalData());
+              const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverGMRES(SolverControl &cn, const AdditionalData &data = AdditionalData());
+  SolverGMRES(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * The copy constructor is deleted.
@@ -800,14 +800,13 @@ public:
    */
   SolverMPGMRES(SolverControl            &cn,
                 VectorMemory<VectorType> &mem,
-                const AdditionalData     &data = AdditionalData());
+                const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverMPGMRES(SolverControl        &cn,
-                const AdditionalData &data = AdditionalData());
+  SolverMPGMRES(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * Solve the linear system $Ax=b$ for x.
@@ -927,14 +926,13 @@ public:
    */
   SolverFGMRES(SolverControl            &cn,
                VectorMemory<VectorType> &mem,
-               const AdditionalData     &data = AdditionalData());
+               const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverFGMRES(SolverControl        &cn,
-               const AdditionalData &data = AdditionalData());
+  SolverFGMRES(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * Solve the linear system $Ax=b$ for x.

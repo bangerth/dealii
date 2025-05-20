@@ -2616,9 +2616,8 @@ namespace GridGenerator
      */
     template <int dim>
     void
-    create_triangulation(
-      Triangulation<dim, dim> &tria,
-      const AdditionalData    &additional_data = AdditionalData());
+    create_triangulation(Triangulation<dim, dim> &tria,
+                         const AdditionalData    &additional_data = {});
 
 
 
@@ -2640,7 +2639,7 @@ namespace GridGenerator
       Triangulation<dim, dim>                             &tria,
       std::vector<GridTools::PeriodicFacePair<
         typename Triangulation<dim, dim>::cell_iterator>> &periodic_faces,
-      const AdditionalData &additional_data = AdditionalData());
+      const AdditionalData &additional_data = {});
 
   } // namespace Airfoil
 

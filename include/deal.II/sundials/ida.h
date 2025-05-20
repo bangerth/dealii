@@ -843,7 +843,7 @@ namespace SUNDIALS
      * objects to only work on the present processor (i.e., results are only
      * communicated over MPI_COMM_SELF).
      */
-    IDA(const AdditionalData &data = AdditionalData());
+    IDA(const AdditionalData &data = {});
 
     /**
      * Constructor.

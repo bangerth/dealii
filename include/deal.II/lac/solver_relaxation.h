@@ -68,8 +68,7 @@ public:
   /**
    * Constructor.
    */
-  SolverRelaxation(SolverControl        &cn,
-                   const AdditionalData &data = AdditionalData());
+  SolverRelaxation(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * Solve the system $Ax = b$ using the relaxation method $x_{k+1} =

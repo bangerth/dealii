@@ -271,7 +271,7 @@ namespace NonMatching
      */
     MappingInfo(const Mapping<dim, spacedim> &mapping,
                 const UpdateFlags             update_flags,
-                const AdditionalData additional_data = AdditionalData());
+                const AdditionalData          additional_data = {});
 
     /**
      * Do not allow making copies.

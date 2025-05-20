@@ -107,8 +107,7 @@ namespace Utilities
        *
        * @param additional_data Configure options for RemotePointEvaluation.
        */
-      RemotePointEvaluation(
-        const AdditionalData &additional_data = AdditionalData());
+      RemotePointEvaluation(const AdditionalData &additional_data = {});
 
       /**
        * Constructor. This constructor is deprecated. Use the other constructor

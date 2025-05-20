@@ -810,7 +810,7 @@ public:
   /**
    * Constructor.
    */
-  MGTwoLevelTransferNonNested(const AdditionalData &data = AdditionalData());
+  MGTwoLevelTransferNonNested(const AdditionalData &data = {});
 
   /**
    * Set up transfer operator between the given DoFHandler objects (

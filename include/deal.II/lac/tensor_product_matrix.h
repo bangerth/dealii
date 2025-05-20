@@ -369,7 +369,7 @@ public:
    * Constructor.
    */
   TensorProductMatrixSymmetricSumCollection(
-    const AdditionalData &additional_data = AdditionalData());
+    const AdditionalData &additional_data = {});
 
   /**
    * Allocate memory. The parameter @p specifies the maximum value

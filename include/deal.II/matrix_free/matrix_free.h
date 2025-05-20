@@ -576,7 +576,7 @@ public:
          const DoFHandler<dim>            &dof_handler,
          const AffineConstraints<number2> &constraint,
          const QuadratureType             &quad,
-         const AdditionalData             &additional_data = AdditionalData());
+         const AdditionalData             &additional_data = {});
 
   /**
    * Extracts the information needed to perform loops over cells. The
@@ -605,7 +605,7 @@ public:
          const std::vector<const DoFHandler<dim> *>            &dof_handler,
          const std::vector<const AffineConstraints<number2> *> &constraint,
          const std::vector<QuadratureType>                     &quad,
-         const AdditionalData &additional_data = AdditionalData());
+         const AdditionalData &additional_data = {});
 
   /**
    * Initializes the data structures. Same as before, but now the index set
@@ -620,7 +620,7 @@ public:
          const std::vector<const DoFHandler<dim> *>            &dof_handler,
          const std::vector<const AffineConstraints<number2> *> &constraint,
          const QuadratureType                                  &quad,
-         const AdditionalData &additional_data = AdditionalData());
+         const AdditionalData &additional_data = {});
 
   /**
    * Copy function. Creates a deep copy of all data structures. It is usually

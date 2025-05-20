@@ -160,8 +160,7 @@ public:
    */
   template <class Matrix>
   void
-  initialize(const Matrix        &matrix,
-             const AdditionalData additional_data = AdditionalData());
+  initialize(const Matrix &matrix, const AdditionalData additional_data = {});
 
   /**
    * @}

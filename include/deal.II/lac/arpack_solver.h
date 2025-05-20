@@ -264,8 +264,7 @@ public:
   /**
    * Constructor.
    */
-  ArpackSolver(SolverControl        &control,
-               const AdditionalData &data = AdditionalData());
+  ArpackSolver(SolverControl &control, const AdditionalData &data = {});
 
   /**
    * Set initial vector for building Krylov space.

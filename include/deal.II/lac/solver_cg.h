@@ -237,13 +237,13 @@ public:
    */
   SolverCG(SolverControl            &cn,
            VectorMemory<VectorType> &mem,
-           const AdditionalData     &data = AdditionalData());
+           const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverCG(SolverControl &cn, const AdditionalData &data = AdditionalData());
+  SolverCG(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * Virtual destructor.
@@ -438,14 +438,13 @@ public:
    */
   SolverFlexibleCG(SolverControl            &cn,
                    VectorMemory<VectorType> &mem,
-                   const AdditionalData     &data = AdditionalData());
+                   const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverFlexibleCG(SolverControl        &cn,
-                   const AdditionalData &data = AdditionalData());
+  SolverFlexibleCG(SolverControl &cn, const AdditionalData &data = {});
 
 protected:
   /**

@@ -438,7 +438,7 @@ namespace SUNDIALS
      * objects to only work on the present processor (i.e., results are only
      * communicated over MPI_COMM_SELF).
      */
-    KINSOL(const AdditionalData &data = AdditionalData());
+    KINSOL(const AdditionalData &data = {});
 
     /**
      * Constructor.

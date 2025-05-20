@@ -83,7 +83,7 @@ public:
    */
   EigenPower(SolverControl            &cn,
              VectorMemory<VectorType> &mem,
-             const AdditionalData     &data = AdditionalData());
+             const AdditionalData     &data = {});
 
 
   /**
@@ -168,7 +168,7 @@ public:
    */
   EigenInverse(SolverControl            &cn,
                VectorMemory<VectorType> &mem,
-               const AdditionalData     &data = AdditionalData());
+               const AdditionalData     &data = {});
 
   /**
    * Inverse method. @p value is the start guess for the eigenvalue and @p x

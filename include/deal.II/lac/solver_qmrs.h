@@ -164,13 +164,13 @@ public:
    */
   SolverQMRS(SolverControl            &cn,
              VectorMemory<VectorType> &mem,
-             const AdditionalData     &data = AdditionalData());
+             const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverQMRS(SolverControl &cn, const AdditionalData &data = AdditionalData());
+  SolverQMRS(SolverControl &cn, const AdditionalData &data = {});
 
   /**
    * Solve the linear system $Ax=b$ for x.

@@ -229,7 +229,7 @@ namespace GinkgoWrappers
      */
     SolverCG(SolverControl        &solver_control,
              const std::string    &exec_type,
-             const AdditionalData &data = AdditionalData());
+             const AdditionalData &data = {});
 
     /**
      * Constructor.
@@ -247,7 +247,7 @@ namespace GinkgoWrappers
     SolverCG(SolverControl                            &solver_control,
              const std::string                        &exec_type,
              const std::shared_ptr<gko::LinOpFactory> &preconditioner,
-             const AdditionalData                     &data = AdditionalData());
+             const AdditionalData                     &data = {});
 
   protected:
     /**
@@ -283,7 +283,7 @@ namespace GinkgoWrappers
      */
     SolverBicgstab(SolverControl        &solver_control,
                    const std::string    &exec_type,
-                   const AdditionalData &data = AdditionalData());
+                   const AdditionalData &data = {});
 
     /**
      * Constructor.
@@ -301,7 +301,7 @@ namespace GinkgoWrappers
     SolverBicgstab(SolverControl                            &solver_control,
                    const std::string                        &exec_type,
                    const std::shared_ptr<gko::LinOpFactory> &preconditioner,
-                   const AdditionalData &data = AdditionalData());
+                   const AdditionalData                     &data = {});
 
   protected:
     /**
@@ -339,7 +339,7 @@ namespace GinkgoWrappers
      */
     SolverCGS(SolverControl        &solver_control,
               const std::string    &exec_type,
-              const AdditionalData &data = AdditionalData());
+              const AdditionalData &data = {});
 
     /**
      * Constructor.
@@ -357,7 +357,7 @@ namespace GinkgoWrappers
     SolverCGS(SolverControl                            &solver_control,
               const std::string                        &exec_type,
               const std::shared_ptr<gko::LinOpFactory> &preconditioner,
-              const AdditionalData &data = AdditionalData());
+              const AdditionalData                     &data = {});
 
   protected:
     /**
@@ -404,7 +404,7 @@ namespace GinkgoWrappers
      */
     SolverFCG(SolverControl        &solver_control,
               const std::string    &exec_type,
-              const AdditionalData &data = AdditionalData());
+              const AdditionalData &data = {});
 
     /**
      * Constructor.
@@ -422,7 +422,7 @@ namespace GinkgoWrappers
     SolverFCG(SolverControl                            &solver_control,
               const std::string                        &exec_type,
               const std::shared_ptr<gko::LinOpFactory> &preconditioner,
-              const AdditionalData &data = AdditionalData());
+              const AdditionalData                     &data = {});
 
   protected:
     /**
@@ -468,7 +468,7 @@ namespace GinkgoWrappers
      */
     SolverGMRES(SolverControl        &solver_control,
                 const std::string    &exec_type,
-                const AdditionalData &data = AdditionalData());
+                const AdditionalData &data = {});
 
     /**
      * Constructor.
@@ -486,7 +486,7 @@ namespace GinkgoWrappers
     SolverGMRES(SolverControl                            &solver_control,
                 const std::string                        &exec_type,
                 const std::shared_ptr<gko::LinOpFactory> &preconditioner,
-                const AdditionalData &data = AdditionalData());
+                const AdditionalData                     &data = {});
 
   protected:
     /**
@@ -525,7 +525,7 @@ namespace GinkgoWrappers
      */
     SolverIR(SolverControl        &solver_control,
              const std::string    &exec_type,
-             const AdditionalData &data = AdditionalData());
+             const AdditionalData &data = {});
 
     /**
      * Constructor.
@@ -543,7 +543,7 @@ namespace GinkgoWrappers
     SolverIR(SolverControl                            &solver_control,
              const std::string                        &exec_type,
              const std::shared_ptr<gko::LinOpFactory> &inner_solver,
-             const AdditionalData                     &data = AdditionalData());
+             const AdditionalData                     &data = {});
 
   protected:
     /**

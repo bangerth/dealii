@@ -249,7 +249,7 @@ public:
   template <typename MatrixType>
   void
   initialize(const MatrixType     &matrix,
-             const AdditionalData &additional_data = AdditionalData());
+             const AdditionalData &additional_data = {});
 
   /**
    * Apply preconditioner.
@@ -611,8 +611,7 @@ public:
    * zero and smaller than 2 for numerical reasons. It defaults to 1.
    */
   void
-  initialize(const MatrixType     &A,
-             const AdditionalData &parameters = AdditionalData());
+  initialize(const MatrixType &A, const AdditionalData &parameters = {});
 
   /**
    * Release the matrix and reset its pointer.
@@ -1664,8 +1663,7 @@ public:
    * @copydoc PreconditionRelaxation::initialize()
    */
   void
-  initialize(const MatrixType     &A,
-             const AdditionalData &parameters = AdditionalData());
+  initialize(const MatrixType &A, const AdditionalData &parameters = {});
 };
 
 
@@ -1734,8 +1732,7 @@ public:
    * @copydoc PreconditionRelaxation::initialize()
    */
   void
-  initialize(const MatrixType     &A,
-             const AdditionalData &parameters = AdditionalData());
+  initialize(const MatrixType &A, const AdditionalData &parameters = {});
 };
 
 
@@ -1788,8 +1785,7 @@ public:
    * zero and smaller than 2 for numerical reasons. It defaults to 1.
    */
   void
-  initialize(const MatrixType     &A,
-             const AdditionalData &parameters = AdditionalData());
+  initialize(const MatrixType &A, const AdditionalData &parameters = {});
 };
 
 
@@ -2183,7 +2179,7 @@ public:
    */
   void
   initialize(const MatrixType     &matrix,
-             const AdditionalData &additional_data = AdditionalData());
+             const AdditionalData &additional_data = {});
 
   /**
    * Compute the action of the preconditioner on <tt>src</tt>, storing the

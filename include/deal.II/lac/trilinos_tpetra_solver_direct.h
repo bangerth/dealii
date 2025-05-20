@@ -222,7 +222,7 @@ namespace LinearAlgebra
        * Constructor. Takes the solver control object and creates the solver.
        */
       SolverDirect(SolverControl        &cn,
-                   const AdditionalData &additional_data = AdditionalData());
+                   const AdditionalData &additional_data = {});
 
       /**
        * Set a parameter list to fine tune the solver.
@@ -301,9 +301,8 @@ namespace LinearAlgebra
       /**
        * Constructor. Takes the solver control object and creates the solver.
        */
-      SolverDirectKLU2(
-        SolverControl        &cn,
-        const AdditionalData &additional_data = AdditionalData());
+      SolverDirectKLU2(SolverControl        &cn,
+                       const AdditionalData &additional_data = {});
     }; // KLU2
 
   } // namespace TpetraWrappers

@@ -92,7 +92,7 @@ public:
    * Constructor.
    */
   explicit SolverBFGS(SolverControl        &residual_control,
-                      const AdditionalData &data = AdditionalData());
+                      const AdditionalData &data = {});
 
   /**
    * Solve the unconstrained minimization problem

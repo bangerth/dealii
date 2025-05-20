@@ -406,7 +406,7 @@ namespace SLEPcWrappers
     explicit SolverKrylovSchur(
       SolverControl        &cn,
       const MPI_Comm        mpi_communicator = PETSC_COMM_SELF,
-      const AdditionalData &data             = AdditionalData());
+      const AdditionalData &data             = {});
 
   protected:
     /**
@@ -457,7 +457,7 @@ namespace SLEPcWrappers
      */
     explicit SolverArnoldi(SolverControl &cn,
                            const MPI_Comm mpi_communicator = PETSC_COMM_SELF,
-                           const AdditionalData &data      = AdditionalData());
+                           const AdditionalData &data      = {});
 
   protected:
     /**
@@ -509,7 +509,7 @@ namespace SLEPcWrappers
      */
     explicit SolverLanczos(SolverControl &cn,
                            const MPI_Comm mpi_communicator = PETSC_COMM_SELF,
-                           const AdditionalData &data      = AdditionalData());
+                           const AdditionalData &data      = {});
 
   protected:
     /**
@@ -549,7 +549,7 @@ namespace SLEPcWrappers
      */
     explicit SolverPower(SolverControl &cn,
                          const MPI_Comm mpi_communicator = PETSC_COMM_SELF,
-                         const AdditionalData &data      = AdditionalData());
+                         const AdditionalData &data      = {});
 
   protected:
     /**
@@ -600,7 +600,7 @@ namespace SLEPcWrappers
     explicit SolverGeneralizedDavidson(
       SolverControl        &cn,
       const MPI_Comm        mpi_communicator = PETSC_COMM_SELF,
-      const AdditionalData &data             = AdditionalData());
+      const AdditionalData &data             = {});
 
   protected:
     /**
@@ -641,7 +641,7 @@ namespace SLEPcWrappers
     explicit SolverJacobiDavidson(
       SolverControl        &cn,
       const MPI_Comm        mpi_communicator = PETSC_COMM_SELF,
-      const AdditionalData &data             = AdditionalData());
+      const AdditionalData &data             = {});
 
   protected:
     /**
@@ -681,7 +681,7 @@ namespace SLEPcWrappers
      */
     explicit SolverLAPACK(SolverControl &cn,
                           const MPI_Comm mpi_communicator = PETSC_COMM_SELF,
-                          const AdditionalData &data      = AdditionalData());
+                          const AdditionalData &data      = {});
 
   protected:
     /**

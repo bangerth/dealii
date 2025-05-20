@@ -127,14 +127,13 @@ public:
    */
   SolverFIRE(SolverControl            &solver_control,
              VectorMemory<VectorType> &vector_memory,
-             const AdditionalData     &data = AdditionalData());
+             const AdditionalData     &data = {});
 
   /**
    * Constructor. Use an object of type GrowingVectorMemory as a default to
    * allocate memory.
    */
-  SolverFIRE(SolverControl        &solver_control,
-             const AdditionalData &data = AdditionalData());
+  SolverFIRE(SolverControl &solver_control, const AdditionalData &data = {});
 
   /**
    * Obtain a set of variables @p x that minimize an objective function

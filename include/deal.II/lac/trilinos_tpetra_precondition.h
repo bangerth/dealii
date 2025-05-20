@@ -419,7 +419,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -505,7 +505,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -603,7 +603,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -698,7 +698,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -791,7 +791,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -892,7 +892,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -986,7 +986,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -1083,7 +1083,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -1167,7 +1167,7 @@ namespace LinearAlgebra
        */
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -1240,7 +1240,7 @@ namespace LinearAlgebra
 
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 
 
@@ -1312,7 +1312,7 @@ namespace LinearAlgebra
 
       void
       initialize(const SparseMatrix<Number, MemorySpace> &A,
-                 const AdditionalData &additional_data = AdditionalData());
+                 const AdditionalData                    &additional_data = {});
     };
 #  endif // DEAL_II_TRILINOS_WITH_IFPACK2
 

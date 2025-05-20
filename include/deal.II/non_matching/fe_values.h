@@ -173,7 +173,7 @@ namespace NonMatching
              const MeshClassifier<dim>   &mesh_classifier,
              const DoFHandler<dim>       &dof_handler,
              const ReadVector<Number>    &level_set,
-             const AdditionalData        &additional_data = AdditionalData());
+             const AdditionalData        &additional_data = {});
 
     /**
      * Constructor.
@@ -210,7 +210,7 @@ namespace NonMatching
              const MeshClassifier<dim>        &mesh_classifier,
              const DoFHandler<dim>            &dof_handler,
              const ReadVector<Number>         &level_set,
-             const AdditionalData &additional_data = AdditionalData());
+             const AdditionalData             &additional_data = {});
 
     /**
      * Reinitialize the various FEValues-like objects for the 3 different
@@ -519,7 +519,7 @@ namespace NonMatching
                       const MeshClassifier<dim>   &mesh_classifier,
                       const DoFHandler<dim>       &dof_handler,
                       const ReadVector<Number>    &level_set,
-                      const AdditionalData &additional_data = AdditionalData());
+                      const AdditionalData        &additional_data = {});
 
     /**
      * Constructor.
@@ -556,7 +556,7 @@ namespace NonMatching
                       const MeshClassifier<dim>        &mesh_classifier,
                       const DoFHandler<dim>            &dof_handler,
                       const ReadVector<Number>         &level_set,
-                      const AdditionalData &additional_data = AdditionalData());
+                      const AdditionalData             &additional_data = {});
 
     /**
      * Reinitialize on the shared face between two neighboring cells.

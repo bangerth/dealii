@@ -476,7 +476,7 @@ namespace SUNDIALS
      * objects to only work on the present processor (i.e., results are only
      * communicated over MPI_COMM_SELF).
      */
-    ARKode(const AdditionalData &data = AdditionalData());
+    ARKode(const AdditionalData &data = {});
 
     /**
      * Constructor.

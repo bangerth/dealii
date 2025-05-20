@@ -295,7 +295,7 @@ public:
    */
   PArpackSolver(SolverControl        &control,
                 const MPI_Comm        mpi_communicator,
-                const AdditionalData &data = AdditionalData());
+                const AdditionalData &data = {});
 
   /**
    * Initialize internal variables.
