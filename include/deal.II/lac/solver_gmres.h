@@ -2296,7 +2296,7 @@ void SolverMPGMRES<VectorType>::solve_internal(
   // Krylov space sequence according to the chosen indexing strategy
 
   const auto previous_vector_index =
-    [n_preconditioners, indexing_strategy](unsigned int i) -> unsigned int {
+    [indexing_strategy](unsigned int i) -> unsigned int {
     // In the special case of no preconditioners we simply fall back to the
     // FGMRES indexing strategy.
     if (n_preconditioners == 0)
