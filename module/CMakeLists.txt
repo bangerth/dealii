@@ -409,5 +409,290 @@ if(DEAL_II_WITH_CXX20_MODULE)
     add_dependencies(library ${DEAL_II_TARGET_NAME}_module_${build_lowercase})
   endforeach()
 
-  message(STATUS "Setting up the C++20 module - Done")
+
+  # For each tutorial program, add a target that compiles it against the non-module library
+  list(APPEND _steps 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 19 20 21 23 24 25 26 27 28 30 38 39 44 48 49 51 61 65 67 76 78 93 97)
+  if(NOT DEAL_II_WITH_PETSC OR DEAL_II_PETSC_WITH_COMPLEX)
+  else()
+    list(APPEND _steps 17)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_PETSC OR DEAL_II_PETSC_WITH_COMPLEX)
+  else()
+    list(APPEND _steps 18)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 22)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 29)
+  endif()
+  if(NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 31)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 32)
+  endif()
+  if(NOT DEAL_II_TRILINOS_WITH_SACADO OR NOT DEAL_II_WITH_MUPARSER)
+  else()
+    list(APPEND _steps 33)
+  endif()
+  if(NOT DEAL_II_WITH_MUPARSER)
+  else()
+    list(APPEND _steps 34)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 35)
+  endif()
+  if(NOT DEAL_II_WITH_PETSC OR NOT DEAL_II_WITH_SLEPC OR DEAL_II_PETSC_WITH_COMPLEX)
+  else()
+    list(APPEND _steps 36)
+  endif()
+  if(NOT DEAL_II_WITH_LAPACK)
+  else()
+    list(APPEND _steps 37)
+  endif()
+  if(NOT ((DEAL_II_WITH_PETSC AND NOT DEAL_II_PETSC_WITH_COMPLEX) OR DEAL_II_WITH_TRILINOS) OR NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 40)
+  endif()
+  if(NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 41)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 42)
+  endif()
+  if(NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 43)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 45)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 46)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 47)
+  endif()
+  if(NOT ((DEAL_II_WITH_PETSC AND NOT DEAL_II_PETSC_WITH_COMPLEX) OR DEAL_II_WITH_TRILINOS) OR NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 50)
+  endif()
+  if(NOT DEAL_II_WITH_ZLIB)
+  else()
+    list(APPEND _steps 53)
+  endif()
+  if(NOT DEAL_II_WITH_OPENCASCADE)
+  else()
+    list(APPEND _steps 54)
+  endif()
+  if(NOT ((DEAL_II_WITH_PETSC AND NOT DEAL_II_PETSC_WITH_COMPLEX) OR DEAL_II_WITH_TRILINOS) OR NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 55)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 56)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 57)
+  endif()
+  if(NOT (DEAL_II_WITH_UMFPACK AND DEAL_II_WITH_COMPLEX_VALUES))
+  else()
+    list(APPEND _steps 58)
+  endif()
+  if(NOT DEAL_II_WITH_LAPACK)
+  else()
+    list(APPEND _steps 59)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK OR NOT DEAL_II_WITH_MUPARSER)
+  else()
+    list(APPEND _steps 60)
+  endif()
+  if(NOT (DEAL_II_WITH_PETSC AND DEAL_II_PETSC_WITH_COMPLEX AND DEAL_II_WITH_P4EST AND DEAL_II_WITH_HDF5))
+  else()
+    list(APPEND _steps 62)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_LAPACK)
+  else()
+    list(APPEND _steps 64)
+  endif()
+  if(NOT DEAL_II_WITH_LAPACK OR NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 66)
+  endif()
+  if(NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 68)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 69)
+  endif()
+  if(NOT ((DEAL_II_WITH_PETSC AND NOT DEAL_II_PETSC_WITH_COMPLEX) OR DEAL_II_WITH_TRILINOS) OR NOT DEAL_II_WITH_P4EST)
+  else()
+    list(APPEND _steps 70)
+  endif()
+  if(NOT ((DEAL_II_WITH_TRILINOS AND DEAL_II_TRILINOS_WITH_SACADO) AND DEAL_II_WITH_SYMENGINE))
+  else()
+    list(APPEND _steps 71)
+  endif()
+  if(NOT (DEAL_II_WITH_TRILINOS AND DEAL_II_TRILINOS_WITH_SACADO))
+  else()
+    list(APPEND _steps 72)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 74)
+  endif()
+  if(NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 75)
+  endif()
+  if(NOT DEAL_II_WITH_SUNDIALS)
+  else()
+    list(APPEND _steps 77)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 79)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 81)
+  endif()
+  if(NOT DEAL_II_WITH_UMFPACK)
+  else()
+    list(APPEND _steps 82)
+  endif()
+  if(NOT DEAL_II_WITH_MPI)
+  else()
+    list(APPEND _steps 83)
+  endif()
+  if(NOT DEAL_II_WITH_LAPACK)
+  else()
+    list(APPEND _steps 85)
+  endif()
+  if((NOT DEAL_II_WITH_PETSC OR DEAL_II_PETSC_WITH_COMPLEX) OR (NOT DEAL_II_WITH_P4EST))
+  else()
+    list(APPEND _steps 86)
+  endif()
+  if(NOT DEAL_II_WITH_MPI)
+  else()
+    list(APPEND _steps 87)
+  endif()
+  if(NOT DEAL_II_WITH_MPI)
+  else()
+    list(APPEND _steps 89)
+  endif()
+  if(NOT DEAL_II_WITH_MPI OR NOT DEAL_II_WITH_P4EST OR NOT DEAL_II_WITH_TRILINOS)
+  else()
+    list(APPEND _steps 90)
+  endif()
+
+  add_custom_target(build_module_steps)
+  set_target_properties(build_module_steps PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+  add_custom_target(build_nonmodule_steps)
+  set_target_properties(build_nonmodule_steps PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+  foreach(_step ${_steps})
+    # Create a target for the non-module build:
+    add_executable(nonmodule_step_${_step} EXCLUDE_FROM_ALL)
+    target_sources(nonmodule_step_${_step}
+                   PUBLIC
+                   ${CMAKE_CURRENT_SOURCE_DIR}/../examples/step-${_step}/step-${_step}.cc)
+    target_compile_features(nonmodule_step_${_step} PUBLIC cxx_std_20)
+    set_property(TARGET nonmodule_step_${_step} PROPERTY CXX_STANDARD 20)
+    set_property(TARGET nonmodule_step_${_step} PROPERTY CXX_EXTENSIONS OFF)
+    target_link_libraries (nonmodule_step_${_step} PRIVATE ${DEAL_II_TARGET_NAME}_debug)
+    set_target_properties(nonmodule_step_${_step} PROPERTIES
+      LINK_FLAGS "-stdlib=libc++"
+    )
+    set_target_properties(nonmodule_step_${_step} PROPERTIES
+      COMPILE_FLAGS "-stdlib=libc++"
+    )
+    add_dependencies(build_nonmodule_steps nonmodule_step_${_step})
+
+
+    # Then also create a target for the module build
+    add_executable(module_step_${_step} EXCLUDE_FROM_ALL)
+
+    add_custom_command(
+      OUTPUT examples-module/step-${_step}.cc
+      DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/../examples/step-${_step}/step-${_step}.cc
+      COMMAND
+        ${CMAKE_COMMAND}
+        ARGS -E echo
+        "import dealii\;"
+        ">"
+        examples-module/step-${_step}.cc
+      COMMAND
+        ${CMAKE_COMMAND}
+        ARGS -E echo
+        "import dealii.external.std\;"
+        ">>"
+        examples-module/step-${_step}.cc
+      COMMAND
+        ${CMAKE_COMMAND}
+        ARGS -E echo
+        "import dealii.external.mpi\;"
+        ">>"
+        examples-module/step-${_step}.cc
+      COMMAND
+        ${CMAKE_COMMAND}
+        ARGS -E echo
+        "import dealii.external.boost\;"
+        ">>"
+        examples-module/step-${_step}.cc
+      COMMAND
+        ${CMAKE_COMMAND}
+        ARGS -E echo
+        "'#include<deal.II/macros.h>'"
+        ">>"
+        examples-module/step-${_step}.cc
+      COMMAND
+        ${CMAKE_COMMAND}
+        ARGS -E cat
+        ${CMAKE_CURRENT_SOURCE_DIR}/../examples/step-${_step}/step-${_step}.cc
+        "|"
+        perl -p -e 's=^\#include <.*==g;'
+        ">>"
+        examples-module/step-${_step}.cc
+    )
+
+    target_sources(module_step_${_step}
+                   PUBLIC
+                   examples-module/step-${_step}.cc)
+    target_compile_features(module_step_${_step} PUBLIC cxx_std_20)
+    set_property(TARGET module_step_${_step} PROPERTY CXX_STANDARD 20)
+    set_property(TARGET module_step_${_step} PROPERTY CXX_EXTENSIONS OFF)
+
+    # Make sure CMake figures out that we need to scan the sources for
+    # module. This should happen automatically via policy 0155, but
+    # doesn't appear to work:
+    set_property(TARGET module_step_${_step} PROPERTY CXX_SCAN_FOR_MODULES ON)
+    target_link_libraries (module_step_${_step} PRIVATE ${DEAL_II_TARGET_NAME}_module_debug)
+    set_target_properties(module_step_${_step} PROPERTIES
+      LINK_FLAGS "-stdlib=libc++"
+    )
+    set_target_properties(module_step_${_step} PROPERTIES
+      COMPILE_FLAGS "-stdlib=libc++"
+    )
+    add_dependencies(build_module_steps module_step_${_step})
+  endforeach()
+
+  message(STATUS "Setting up a C++20 module - Done")
 endif()
